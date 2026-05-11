@@ -237,7 +237,7 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                 let num_lines = app.code.split('\n').count().max(1);
 
                 // The Gutter
-                let (gutter_rect, gutter_resp) = ui.allocate_exact_size(
+                let (gutter_resp, painter) = ui.allocate_painter(
                     egui::vec2(
                         45.0,
                         (num_lines as f32 * row_height) + (text_margin_y * 2.0),
@@ -249,8 +249,7 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
 
                 if gutter_resp.clicked() {
                     if let Some(pos) = gutter_resp.interact_pointer_pos() {
-                        // Calculate exact line index factoring in the margin
-                        let y_offset = pos.y - gutter_rect.top() - text_margin_y;
+                        let y_offset = pos.y - gutter_resp.rect.top() - text_margin_y;
                         if y_offset >= 0.0 {
                             let mut line_idx = (y_offset / row_height) as usize;
                             line_idx = line_idx.min(num_lines.saturating_sub(1));
@@ -266,13 +265,13 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                     }
                 }
 
-                if ui.is_rect_visible(gutter_rect) {
-                    ui.painter()
-                        .rect_filled(gutter_rect, 0.0, egui::Color32::from_rgb(30, 30, 30));
+                if ui.is_rect_visible(gutter_resp.rect) {
+                    painter.rect_filled(gutter_resp.rect, 0.0, egui::Color32::from_rgb(30, 30, 30));
+
                     for i in 0..num_lines {
-                        let y = gutter_rect.top() + text_margin_y + (i as f32 * row_height);
-                        ui.painter().text(
-                            egui::pos2(gutter_rect.right() - 5.0, y),
+                        let y = gutter_resp.rect.top() + text_margin_y + (i as f32 * row_height);
+                        painter.text(
+                            egui::pos2(gutter_resp.rect.right() - 5.0, y),
                             egui::Align2::RIGHT_TOP,
                             (i + 1).to_string(),
                             font_id.clone(),
@@ -280,8 +279,8 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                         );
 
                         if app.line_to_pc.get(&i).map_or(false, |pc| bps.contains(pc)) {
-                            ui.painter().circle_filled(
-                                egui::pos2(gutter_rect.left() + 10.0, y + (row_height / 2.0)),
+                            painter.circle_filled(
+                                egui::pos2(gutter_resp.rect.left() + 10.0, y + (row_height / 2.0)),
                                 4.0,
                                 egui::Color32::RED,
                             );
@@ -369,28 +368,52 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
 
         egui::ScrollArea::both()
             .id_salt("disasm_scroll")
+            .auto_shrink([false, false]) // <-- Forces the scroll area to expand fully!
             .show(ui, |ui| {
+                // Calculate exactly 1/4th of the screen width for our 4 columns
+                let col_width = ui.available_width() / 4.0;
+
                 egui::Grid::new("disasm_grid")
                     .striped(true)
-                    .spacing([20.0, 4.0])
+                    .spacing([0.0, 2.0])
+                    .min_col_width(col_width) // <-- Forces the grid columns to stretch!
                     .show(ui, |ui| {
-                        ui.label(egui::RichText::new("Address").strong());
-                        ui.label(egui::RichText::new("Bytes").strong());
-                        ui.label(egui::RichText::new("Disassembly").strong());
-                        ui.label(egui::RichText::new("Internal").strong());
+                        // --- HEADER ROW ---
+                        let header_frame = egui::Frame::NONE.inner_margin(egui::vec2(10.0, 4.0));
+
+                        header_frame.show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.label(egui::RichText::new("Address").strong());
+                        });
+                        header_frame.show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.label(egui::RichText::new("Bytes").strong());
+                        });
+                        header_frame.show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.label(egui::RichText::new("Disassembly").strong());
+                        });
+                        header_frame.show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.label(egui::RichText::new("Internal").strong());
+                        });
                         ui.end_row();
 
+                        // --- DATA ROWS ---
                         let mut current_addr = start_addr;
 
                         for _ in 0..64 {
                             let is_pc = current_addr == pc;
+
                             let bg = if is_pc {
                                 egui::Color32::from_rgb(60, 60, 60)
                             } else {
                                 egui::Color32::TRANSPARENT
                             };
-                            ui.painter()
-                                .rect_filled(ui.available_rect_before_wrap(), 0.0, bg);
+
+                            let cell_frame = egui::Frame::NONE
+                                .fill(bg)
+                                .inner_margin(egui::vec2(10.0, 4.0));
 
                             let backend = backend.as_ref();
                             let info = backend.disassemble(
@@ -398,55 +421,68 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                                 app.emu.as_mut().expect("Can't be None"),
                             );
 
-                            ui.label(
-                                egui::RichText::new(format!("0x{:08X}", current_addr)).monospace(),
-                            );
-                            ui.label(
-                                egui::RichText::new(&info.hex_bytes)
-                                    .monospace()
-                                    .color(egui::Color32::LIGHT_GRAY),
-                            );
-                            ui.label(
-                                egui::RichText::new(&info.disassembly)
-                                    .monospace()
-                                    .color(egui::Color32::LIGHT_GREEN),
-                            );
+                            cell_frame.show(ui, |ui| {
+                                ui.set_width(ui.available_width());
+                                ui.label(
+                                    egui::RichText::new(format!("0x{:08X}", current_addr))
+                                        .monospace(),
+                                );
+                            });
 
-                            // Generate a unique ID for this address's window state
-                            let window_id = ui.id().with("ast_window").with(current_addr);
-                            let mut show_ast =
-                                ui.data(|d| d.get_temp::<bool>(window_id).unwrap_or(false));
+                            cell_frame.show(ui, |ui| {
+                                ui.set_width(ui.available_width());
+                                ui.label(
+                                    egui::RichText::new(&info.hex_bytes)
+                                        .monospace()
+                                        .color(egui::Color32::LIGHT_GRAY),
+                                );
+                            });
 
-                            if ui.button("🔍 View AST").clicked() {
-                                show_ast = !show_ast;
-                                ui.data_mut(|d| d.insert_temp(window_id, show_ast));
-                            }
+                            cell_frame.show(ui, |ui| {
+                                ui.set_width(ui.available_width());
+                                ui.label(
+                                    egui::RichText::new(&info.disassembly)
+                                        .monospace()
+                                        .color(egui::Color32::LIGHT_GREEN),
+                                );
+                            });
 
-                            // If the user clicked the button, spawn a floating window!
-                            if show_ast {
-                                let mut is_open = show_ast;
+                            cell_frame.show(ui, |ui| {
+                                ui.set_width(ui.available_width());
 
-                                egui::Window::new(format!("AST: 0x{:08X}", current_addr))
-                                    .open(&mut is_open) // Adds an "X" button to close it
-                                    .default_size([400.0, 300.0])
-                                    .vscroll(true)
-                                    .hscroll(true) // Prevents the text from ever squishing!
-                                    .show(ui.ctx(), |ui| {
-                                        ui.add(
-                                            egui::Label::new(
-                                                egui::RichText::new(&info.internal_enum)
-                                                    .monospace()
-                                                    .color(egui::Color32::LIGHT_BLUE),
-                                            )
-                                            .wrap_mode(egui::TextWrapMode::Extend), // Force text to stretch naturally
-                                        );
-                                    });
+                                let window_id = ui.id().with("ast_window").with(current_addr);
+                                let mut show_ast =
+                                    ui.data(|d| d.get_temp::<bool>(window_id).unwrap_or(false));
 
-                                // If the user clicked the 'X' to close the window, update our state
-                                if !is_open {
-                                    ui.data_mut(|d| d.insert_temp(window_id, false));
+                                if ui.button("🔍 View AST").clicked() {
+                                    show_ast = !show_ast;
+                                    ui.data_mut(|d| d.insert_temp(window_id, show_ast));
                                 }
-                            }
+
+                                if show_ast {
+                                    let mut is_open = show_ast;
+
+                                    egui::Window::new(format!("AST: 0x{:08X}", current_addr))
+                                        .open(&mut is_open)
+                                        .default_size([400.0, 300.0])
+                                        .vscroll(true)
+                                        .hscroll(true)
+                                        .show(ui.ctx(), |ui| {
+                                            ui.add(
+                                                egui::Label::new(
+                                                    egui::RichText::new(&info.internal_enum)
+                                                        .monospace()
+                                                        .color(egui::Color32::LIGHT_BLUE),
+                                                )
+                                                .wrap_mode(egui::TextWrapMode::Extend),
+                                            );
+                                        });
+
+                                    if !is_open {
+                                        ui.data_mut(|d| d.insert_temp(window_id, false));
+                                    }
+                                }
+                            });
 
                             ui.end_row();
                             current_addr += info.byte_size;
