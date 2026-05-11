@@ -2,11 +2,21 @@
 <html>
 
 <head>
-    <meta charset="utf-8" />
-    <title>HyperEmu</title>
-
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta charset="utf-8" />
+
+    <title>HyperEmu</title>
+
+    <!-- PWA Manifest & App Icons -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./assets/cpu_emulator-192.png">
+
+    <!-- Trunk Directives: Tell Trunk to copy these files into the build folder -->
+    <link data-trunk rel="copy-file" href="manifest.json" />
+    <link data-trunk rel="copy-file" href="sw.js" />
+    <link data-trunk rel="copy-dir" href="assets" />
 
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
 
@@ -38,6 +48,17 @@
 
 <body>
     <canvas id="emulator_canvas"></canvas>
+
+    <!-- Register the Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.error('Service Worker registration failed', err));
+            });
+        }
+    </script>
 </body>
 
 </html>
