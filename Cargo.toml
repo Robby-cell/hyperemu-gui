@@ -5,8 +5,13 @@ edition = "2024"
 
 [dependencies]
 hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", branch = "main" }
-armv7-encoder = { git = "https://github.com/Robby-cell/armv7-encoder.git" }
-armv7-disassembler = { git = "https://github.com/Robby-cell/armv7-disassembler.git" }
+armv7-encoder = { git = "https://github.com/Robby-cell/armv7-encoder.git", branch = "main" }
+armv7-disassembler = { git = "https://github.com/Robby-cell/armv7-disassembler.git", branch = "main" }
+
+# For local development to get the most up to date changes.
+# hyperemu = { path = "../hyperemu" }
+# armv7-encoder = { path = "../armv7-encoder" }
+# armv7-disassembler = { path = "../armv7-disassembler" }
 
 eframe = { version = "0.34.2", features = ["persistence", "ron"] }
 egui = "0.34.2"

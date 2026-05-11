@@ -114,6 +114,10 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
                 .id_salt("right_scroll")
                 .show(ui, |ui| {
                     panels::render_cpu(ui, app);
+
+                    ui.add_space(20.0);
+
+                    panels::render_stack(ui, app);
                 });
         });
 

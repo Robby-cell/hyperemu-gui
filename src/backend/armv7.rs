@@ -93,9 +93,13 @@ impl ArchBackend for Armv7Backend {
         15
     }
 
+    fn sp_reg(&self) -> usize {
+        13
+    }
+
     fn setup_startup_state(&self, emu: &mut HyperEmu) {
-        emu.reg_write(13, 0xB000).unwrap(); // Standard SP
-        emu.reg_write(15, 0).unwrap(); // Standard PC
+        emu.reg_write(self.sp_reg(), 0xB000).unwrap(); // Standard SP
+        emu.reg_write(self.pc_reg(), 0).unwrap(); // Standard PC
     }
 
     fn assemble(&self, code: &str) -> Result<Vec<u8>, String> {

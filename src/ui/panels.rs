@@ -542,6 +542,77 @@ pub fn render_cpu(ui: &mut egui::Ui, app: &mut EmuApp) {
     }
 }
 
+pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
+    ui.heading("Live Stack (Top 16)");
+
+    let sp_reg = app.current_backend().sp_reg();
+
+    if let Some(emu) = &mut app.emu {
+        let sp = emu.reg_read(sp_reg).unwrap_or(0);
+
+        egui::Grid::new("stack_grid")
+            .num_columns(3) // Address | Value | Indicator
+            .striped(true)
+            .spacing([15.0, 4.0])
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new("Address").strong());
+                ui.label(egui::RichText::new("Value").strong());
+                ui.label(""); // Empty header for the arrow indicator
+                ui.end_row();
+
+                for i in 0..16 {
+                    let addr = sp + (i * 4) as u64;
+
+                    // Address Column
+                    ui.label(
+                        egui::RichText::new(format!("0x{:08X}", addr))
+                            .monospace()
+                            .color(egui::Color32::DARK_GRAY),
+                    );
+
+                    // Value Column
+                    match emu.bus.read_32(addr) {
+                        Ok(val) => {
+                            let prev = app.prev_stack.get(&addr).copied().unwrap_or(val);
+                            let color = if val != prev {
+                                egui::Color32::YELLOW // Highlight changes!
+                            } else {
+                                ui.visuals().text_color()
+                            };
+
+                            ui.colored_label(
+                                color,
+                                egui::RichText::new(format!("0x{:08X}", val)).monospace(),
+                            );
+                        }
+                        Err(_) => {
+                            ui.label(egui::RichText::new("Unmapped").color(egui::Color32::RED));
+                        }
+                    }
+
+                    // Indicator Column
+                    if i == 0 {
+                        ui.label(
+                            egui::RichText::new("← SP")
+                                .color(egui::Color32::LIGHT_BLUE)
+                                .strong(),
+                        );
+                    } else {
+                        ui.label("");
+                    }
+
+                    ui.end_row();
+                }
+            });
+    } else {
+        ui.label(
+            egui::RichText::new("Emulator not loaded.")
+                .italics()
+                .color(egui::Color32::DARK_GRAY),
+        );
+    }
+}
+
 pub fn render_dynamic_gpios(ui: &mut egui::Ui, app: &mut EmuApp) {
     ui.heading("Hardware Components");
     let mut found = false;

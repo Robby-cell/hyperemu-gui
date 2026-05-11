@@ -57,6 +57,7 @@ pub struct EmuApp {
 
     // Debugging & Highlighting
     pub prev_regs: HashMap<usize, u64>,
+    pub prev_stack: HashMap<u64, u32>,
     pub pc_to_line: HashMap<u64, usize>,
     pub line_to_pc: HashMap<usize, u64>,
     pub breakpoints: Arc<Mutex<HashSet<u64>>>,
@@ -92,6 +93,7 @@ impl Default for EmuApp {
             left_tab: LeftTab::Hardware,
             central_tab: CentralTab::Editor,
             prev_regs: HashMap::new(),
+            prev_stack: HashMap::new(),
             pc_to_line: HashMap::new(),
             line_to_pc: HashMap::new(),
             breakpoints: Arc::new(Mutex::new(HashSet::new())),
@@ -272,10 +274,24 @@ impl EmuApp {
     }
 
     pub fn snapshot_registers(&mut self) {
-        if let Some(emu) = &self.emu {
+        let sp_reg = self.current_backend().sp_reg();
+
+        if let Some(emu) = &mut self.emu {
+            // 1. Snapshot CPU Registers
             for i in 0..32 {
                 if let Ok(val) = emu.reg_read(i) {
                     self.prev_regs.insert(i, val);
+                }
+            }
+
+            // 2. Snapshot the Stack (Top 16 Words)
+            let sp = emu.reg_read(sp_reg).unwrap_or(0);
+            self.prev_stack.clear();
+
+            for i in 0..16 {
+                let addr = sp + (i * 4) as u64; // ARM words are 4 bytes
+                if let Ok(val) = emu.bus.read_32(addr) {
+                    self.prev_stack.insert(addr, val);
                 }
             }
         }
