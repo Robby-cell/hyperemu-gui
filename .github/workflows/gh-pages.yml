@@ -30,6 +30,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
       # Downloading the pre-compiled trunk binary is much faster than running `cargo install trunk`
       - name: Download and Install Trunk
         run: |
