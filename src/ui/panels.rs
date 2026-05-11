@@ -177,7 +177,21 @@ pub fn compile_and_load(app: &mut EmuApp) {
 }
 
 pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
+    let is_mobile = ui.ctx().content_rect().width() < 800.0;
+
     ui.heading("Assembly Code");
+
+    // MOBILE CODE:
+    // Add a helpful hint for mobile users
+    if is_mobile {
+        ui.label(
+            egui::RichText::new(
+                "💡 Tip: Swipe the line numbers or drag the right scrollbar to scroll.",
+            )
+            .small()
+            .color(egui::Color32::LIGHT_BLUE),
+        );
+    }
 
     let bps_arc = Arc::clone(&app.breakpoints);
     ui.horizontal(|ui| {
@@ -209,6 +223,11 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
     // TextEdit has a default internal Y margin of 4.0. We use this to align the gutter.
     let text_margin_y = 4.0;
 
+    let prev_scroll_width = ui.spacing().scroll.bar_width;
+    if is_mobile {
+        ui.spacing_mut().scroll.bar_width = 10.0; // Make it massive and easy to grab!
+    }
+
     egui::ScrollArea::both()
         .id_salt("code_scroll")
         .show(ui, |ui| {
@@ -220,7 +239,7 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                 // The Gutter
                 let (gutter_rect, gutter_resp) = ui.allocate_exact_size(
                     egui::vec2(
-                        40.0,
+                        45.0,
                         (num_lines as f32 * row_height) + (text_margin_y * 2.0),
                     ),
                     egui::Sense::click(),
@@ -325,6 +344,12 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                 ui.visuals_mut().extreme_bg_color = prev_extreme;
             });
         });
+
+    // MOBILE CODE:
+    // Restore the scrollbar width for the rest of the application
+    if is_mobile {
+        ui.spacing_mut().scroll.bar_width = prev_scroll_width;
+    }
 }
 
 pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
