@@ -367,7 +367,7 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
             .unwrap_or(0);
         let start_addr = pc.saturating_sub(32);
 
-        egui::ScrollArea::vertical()
+        egui::ScrollArea::both()
             .id_salt("disasm_scroll")
             .show(ui, |ui| {
                 egui::Grid::new("disasm_grid")
@@ -375,6 +375,7 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                     .spacing([20.0, 4.0])
                     .show(ui, |ui| {
                         ui.label(egui::RichText::new("Address").strong());
+                        ui.label(egui::RichText::new("Bytes").strong());
                         ui.label(egui::RichText::new("Disassembly").strong());
                         ui.label(egui::RichText::new("Internal").strong());
                         ui.end_row();
@@ -392,27 +393,67 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                                 .rect_filled(ui.available_rect_before_wrap(), 0.0, bg);
 
                             let backend = backend.as_ref();
-                            let (dis_str, enum_str, size) = backend.disassemble(
+                            let info = backend.disassemble(
                                 current_addr,
-                                &mut app.emu.as_mut().expect("Can't be None").bus,
+                                app.emu.as_mut().expect("Can't be None"),
                             );
 
                             ui.label(
                                 egui::RichText::new(format!("0x{:08X}", current_addr)).monospace(),
                             );
                             ui.label(
-                                egui::RichText::new(dis_str)
+                                egui::RichText::new(&info.hex_bytes)
+                                    .monospace()
+                                    .color(egui::Color32::LIGHT_GRAY),
+                            );
+                            ui.label(
+                                egui::RichText::new(&info.disassembly)
                                     .monospace()
                                     .color(egui::Color32::LIGHT_GREEN),
                             );
-                            ui.label(
-                                egui::RichText::new(enum_str)
-                                    .monospace()
-                                    .color(egui::Color32::LIGHT_BLUE),
-                            );
-                            ui.end_row();
 
-                            current_addr += size;
+                            // ---------------------------------------------------------
+                            // NEW: Floating Window approach
+                            // ---------------------------------------------------------
+
+                            // Generate a unique ID for this address's window state
+                            let window_id = ui.id().with("ast_window").with(current_addr);
+                            let mut show_ast =
+                                ui.data(|d| d.get_temp::<bool>(window_id).unwrap_or(false));
+
+                            if ui.button("🔍 View AST").clicked() {
+                                show_ast = !show_ast;
+                                ui.data_mut(|d| d.insert_temp(window_id, show_ast));
+                            }
+
+                            // If the user clicked the button, spawn a floating window!
+                            if show_ast {
+                                let mut is_open = show_ast;
+
+                                egui::Window::new(format!("AST: 0x{:08X}", current_addr))
+                                    .open(&mut is_open) // Adds an "X" button to close it
+                                    .default_size([400.0, 300.0])
+                                    .vscroll(true)
+                                    .hscroll(true) // Prevents the text from ever squishing!
+                                    .show(ui.ctx(), |ui| {
+                                        ui.add(
+                                            egui::Label::new(
+                                                egui::RichText::new(&info.internal_enum)
+                                                    .monospace()
+                                                    .color(egui::Color32::LIGHT_BLUE),
+                                            )
+                                            .wrap_mode(egui::TextWrapMode::Extend), // Force text to stretch naturally
+                                        );
+                                    });
+
+                                // If the user clicked the 'X' to close the window, update our state
+                                if !is_open {
+                                    ui.data_mut(|d| d.insert_temp(window_id, false));
+                                }
+                            }
+
+                            ui.end_row();
+                            current_addr += info.byte_size;
                         }
                     });
             });

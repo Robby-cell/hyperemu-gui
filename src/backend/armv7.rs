@@ -1,11 +1,13 @@
 use super::ArchBackend;
-use crate::ui::peripherals::{GuiPeripheral, PeripheralCategory};
+use crate::{
+    backend::DisassemblyInfo,
+    ui::peripherals::{GuiPeripheral, PeripheralCategory},
+};
 use armv7_disassembler::disassembler::{DisassemblerOptions, Endian, disassemble_with_options};
 use armv7_encoder::assembler::assemble;
 use eframe::egui;
 use hyperemu::{
     Arch, CpuMode, HyperEmu,
-    bus::MemoryBus,
     device::{self, Device, stm32_gpio::Stm32Gpio},
 };
 use std::{
@@ -136,20 +138,46 @@ impl ArchBackend for Armv7Backend {
         (pc_to_line, line_to_pc)
     }
 
-    fn disassemble(&self, addr: u64, bus: &mut MemoryBus) -> (String, String, u64) {
-        if let Ok(raw) = bus.read_32(addr) {
+    fn disassemble(&self, addr: u64, emu: &mut HyperEmu) -> DisassemblyInfo {
+        // 1. Read CPSR (Register 16) to determine current Endianness (Bit 9)
+        let cpsr = emu.reg_read(16).unwrap_or(0);
+        let is_big_endian = (cpsr & (1 << 9)) != 0;
+        let endian = if is_big_endian {
+            Endian::Big
+        } else {
+            Endian::Little
+        };
+
+        // 2. Read exact physical bytes from the memory bus
+        let mut bytes = [0u8; 4];
+        if emu.bus.read_bytes(addr, &mut bytes).is_ok() {
+            // Format bytes in strict physical memory order
+            let bytes_str = format!(
+                "{:02X} {:02X} {:02X} {:02X}",
+                bytes[0], bytes[1], bytes[2], bytes[3]
+            );
+
+            // 3. Reconstruct the 32-bit word correctly depending on Endianness
+            let raw = if is_big_endian {
+                u32::from_be_bytes(bytes)
+            } else {
+                u32::from_le_bytes(bytes)
+            };
+
             let opts = DisassemblerOptions {
                 start_address: addr as u32,
-                endian: Endian::Little,
+                endian, // Pass the dynamic endianness to the armv7-disassembler
             };
-            let bytes = raw.to_le_bytes();
+
             let dis_str = disassemble_with_options(&bytes, opts)
                 .unwrap_or_default()
                 .join(" ");
+
             let enum_str = format!("{:?}", hyperemu::arch::armv7::decode::decode_arm(raw));
-            (dis_str, enum_str, 4)
+
+            DisassemblyInfo::new(bytes_str, dis_str, enum_str, 4)
         } else {
-            ("Invalid Memory".to_string(), "".to_string(), 4)
+            DisassemblyInfo::new("?? ?? ?? ??".into(), "Invalid Memory".into(), "".into(), 4)
         }
     }
 
