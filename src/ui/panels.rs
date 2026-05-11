@@ -478,8 +478,30 @@ pub fn render_memory_map(ui: &mut egui::Ui, app: &mut EmuApp) {
                             egui::RichText::new("(Protected)").color(egui::Color32::DARK_GRAY),
                         );
                     } else {
-                        if ui.button("Remove").clicked() {
-                            to_remove = Some(i);
+                        // Create a unique UI state ID based on the peripheral's starting address
+                        // (We use `map.start` instead of `i` so states don't shift when an item is deleted!)
+                        let confirm_id = ui.id().with("confirm_remove").with(map.start);
+
+                        // Check egui's temporary state to see if this specific item is confirming
+                        let is_confirming =
+                            ui.data(|d| d.get_temp::<bool>(confirm_id).unwrap_or(false));
+
+                        if is_confirming {
+                            if ui
+                                .button(egui::RichText::new("⚠ Confirm").color(egui::Color32::RED))
+                                .clicked()
+                            {
+                                to_remove = Some(i);
+                                ui.data_mut(|d| d.insert_temp(confirm_id, false)); // Reset state
+                            }
+                            if ui.button("Cancel").clicked() {
+                                ui.data_mut(|d| d.insert_temp(confirm_id, false)); // Cancel state
+                            }
+                        } else {
+                            if ui.button("Remove").clicked() {
+                                // Set this specific peripheral to the "confirming" state
+                                ui.data_mut(|d| d.insert_temp(confirm_id, true));
+                            }
                         }
                     }
                 });
