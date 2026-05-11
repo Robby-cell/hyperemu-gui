@@ -5,6 +5,9 @@
     <meta charset="utf-8" />
     <title>HyperEmu Emulator</title>
 
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
     <style>
         html,
         body {
@@ -13,13 +16,20 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background: black;
+            background-color: #1a1a1a;
         }
 
         canvas {
-            width: 100vw;
-            height: 100vh;
             display: block;
+            width: 100%;
+            height: 100%;
+
+            touch-action: none;
+
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            outline: none;
         }
     </style>
 </head>

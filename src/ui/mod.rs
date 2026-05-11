@@ -12,7 +12,7 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
 
     // TOP TOOLBAR
     egui::Panel::top("top_panel").show_inside(ui, |ui| {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             // Add the File Menu here
             ui.menu_button("File", |ui| {
                 if ui.button("📂 Load Workspace...").clicked() {
@@ -24,8 +24,30 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
                     ui.close();
                 }
             });
-            ui.separator();
             // End of File Menu
+
+            // 2. VIEW MENU (New Zoom Controls)
+            ui.menu_button("View", |ui| {
+                let current_zoom = ui.ctx().zoom_factor();
+
+                if ui.button("🔍 Zoom In").clicked() {
+                    ui.ctx().set_zoom_factor(current_zoom * 1.2);
+                }
+                if ui.button("🔍 Zoom Out").clicked() {
+                    ui.ctx().set_zoom_factor(current_zoom / 1.2);
+                }
+                ui.separator();
+                if ui.button("🔄 Reset Zoom").clicked() {
+                    ui.ctx().set_zoom_factor(1.0);
+                }
+
+                // Optional: Show current scale percentage
+                ui.label(
+                    egui::RichText::new(format!("Current: {:.0}%", current_zoom * 100.0)).weak(),
+                );
+            });
+
+            ui.separator();
 
             // MOBILE CODE: Display if not mobile
             if !is_mobile {
