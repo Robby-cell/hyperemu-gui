@@ -43,6 +43,15 @@ pub enum CentralTab {
     MemoryView,
 }
 
+#[derive(PartialEq)]
+pub enum MobileTab {
+    Editor,
+    Cpu,
+    Hardware,
+    Consoles,
+    Memory,
+}
+
 pub struct EmuApp {
     pub backends: Vec<Arc<dyn ArchBackend>>,
     pub active_backend: usize,
@@ -54,6 +63,7 @@ pub struct EmuApp {
 
     pub left_tab: LeftTab,
     pub central_tab: CentralTab,
+    pub mobile_tab: MobileTab,
 
     // Debugging & Highlighting
     pub prev_regs: HashMap<usize, u64>,
@@ -92,6 +102,7 @@ impl Default for EmuApp {
             error_msg: None,
             left_tab: LeftTab::Hardware,
             central_tab: CentralTab::Editor,
+            mobile_tab: MobileTab::Editor,
             prev_regs: HashMap::new(),
             prev_stack: HashMap::new(),
             pc_to_line: HashMap::new(),

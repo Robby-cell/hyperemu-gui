@@ -7,6 +7,9 @@ use eframe::egui;
 pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
     let mut step_clicked = false;
 
+    // MOBILE CODE
+    let is_mobile = ui.ctx().content_rect().width() < 800.0;
+
     // TOP TOOLBAR
     egui::Panel::top("top_panel").show_inside(ui, |ui| {
         ui.horizontal(|ui| {
@@ -24,8 +27,11 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
             ui.separator();
             // End of File Menu
 
-            ui.heading("HyperEmu Emulator");
-            ui.separator();
+            // MOBILE CODE: Display if not mobile
+            if !is_mobile {
+                ui.heading("HyperEmu Emulator");
+                ui.separator();
+            }
 
             egui::ComboBox::from_id_salt("arch_combo")
                 .selected_text(app.current_backend().name())
@@ -86,59 +92,114 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
         }
     }
 
-    // LEFT PANEL (Hardware, Consoles, Memory Map)
-    egui::Panel::left("left_panel")
-        .min_size(320.0)
-        .resizable(true)
-        .show_inside(ui, |ui| {
+    // MOBILE CODE: If mobile, render a completely different layout with a single panel and a nav bar
+    if is_mobile {
+        // MOBILE LAYOUT (Single Panel + Nav Bar)
+        egui::Panel::top("mobile_nav").show_inside(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(
+                    &mut app.mobile_tab,
+                    crate::app::MobileTab::Editor,
+                    "📝 Code",
+                );
+                ui.selectable_value(&mut app.mobile_tab, crate::app::MobileTab::Cpu, "🧠 CPU");
+                ui.selectable_value(
+                    &mut app.mobile_tab,
+                    crate::app::MobileTab::Hardware,
+                    "💡 Hardware",
+                );
+                ui.selectable_value(
+                    &mut app.mobile_tab,
+                    crate::app::MobileTab::Consoles,
+                    "🖥 Consoles",
+                );
+                ui.selectable_value(
+                    &mut app.mobile_tab,
+                    crate::app::MobileTab::Memory,
+                    "💾 Memory",
+                );
+            });
+        });
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            if let Some(err) = &app.error_msg {
+                ui.colored_label(egui::Color32::RED, err);
+                ui.separator();
+            }
+
+            egui::ScrollArea::vertical().show(ui, |ui| match app.mobile_tab {
+                crate::app::MobileTab::Editor => panels::render_editor(ui, app),
+                crate::app::MobileTab::Cpu => {
+                    panels::render_cpu(ui, app);
+                    ui.separator();
+                    panels::render_stack(ui, app);
+                }
+                crate::app::MobileTab::Hardware => panels::render_dynamic_gpios(ui, app),
+                crate::app::MobileTab::Consoles => panels::render_consoles(ui, app),
+                crate::app::MobileTab::Memory => {
+                    panels::render_memory_map(ui, app);
+                    ui.separator();
+                    panels::render_memory_view(ui, app);
+                }
+            });
+        });
+    } else {
+        // DESKTOP LAYOUT (Three Panels)
+
+        // LEFT PANEL (Hardware, Consoles, Memory Map)
+        egui::Panel::left("left_panel")
+            .min_size(320.0)
+            .resizable(true)
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut app.left_tab, LeftTab::Hardware, "Hardware");
+                    ui.selectable_value(&mut app.left_tab, LeftTab::Consoles, "Consoles");
+                    ui.selectable_value(&mut app.left_tab, LeftTab::MemoryMap, "Memory Map");
+                });
+                ui.separator();
+
+                match app.left_tab {
+                    LeftTab::Hardware => panels::render_dynamic_gpios(ui, app),
+                    LeftTab::Consoles => panels::render_consoles(ui, app),
+                    LeftTab::MemoryMap => panels::render_memory_map(ui, app),
+                }
+            });
+
+        // RIGHT PANEL (CPU Registers pinned for debugging)
+        egui::Panel::right("right_panel")
+            .min_size(250.0)
+            .resizable(true)
+            .show_inside(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("right_scroll")
+                    .show(ui, |ui| {
+                        panels::render_cpu(ui, app);
+
+                        ui.add_space(20.0);
+
+                        panels::render_stack(ui, app);
+                    });
+            });
+
+        // CENTRAL PANEL (Code Editor, Disassembly, Memory View)
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            if let Some(err) = &app.error_msg {
+                ui.colored_label(egui::Color32::RED, err);
+                ui.separator();
+            }
+
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut app.left_tab, LeftTab::Hardware, "Hardware");
-                ui.selectable_value(&mut app.left_tab, LeftTab::Consoles, "Consoles");
-                ui.selectable_value(&mut app.left_tab, LeftTab::MemoryMap, "Memory Map");
+                ui.selectable_value(&mut app.central_tab, CentralTab::Editor, "Editor");
+                ui.selectable_value(&mut app.central_tab, CentralTab::Disassembly, "Disassembly");
+                ui.selectable_value(&mut app.central_tab, CentralTab::MemoryView, "Memory View");
             });
             ui.separator();
 
-            match app.left_tab {
-                LeftTab::Hardware => panels::render_dynamic_gpios(ui, app),
-                LeftTab::Consoles => panels::render_consoles(ui, app),
-                LeftTab::MemoryMap => panels::render_memory_map(ui, app),
+            match app.central_tab {
+                CentralTab::Editor => panels::render_editor(ui, app),
+                CentralTab::Disassembly => panels::render_disassembly(ui, app),
+                CentralTab::MemoryView => panels::render_memory_view(ui, app),
             }
         });
-
-    // RIGHT PANEL (CPU Registers pinned for debugging)
-    egui::Panel::right("right_panel")
-        .min_size(250.0)
-        .resizable(true)
-        .show_inside(ui, |ui| {
-            egui::ScrollArea::vertical()
-                .id_salt("right_scroll")
-                .show(ui, |ui| {
-                    panels::render_cpu(ui, app);
-
-                    ui.add_space(20.0);
-
-                    panels::render_stack(ui, app);
-                });
-        });
-
-    // CENTRAL PANEL (Code Editor, Disassembly, Memory View)
-    egui::CentralPanel::default().show_inside(ui, |ui| {
-        if let Some(err) = &app.error_msg {
-            ui.colored_label(egui::Color32::RED, err);
-            ui.separator();
-        }
-
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut app.central_tab, CentralTab::Editor, "Editor");
-            ui.selectable_value(&mut app.central_tab, CentralTab::Disassembly, "Disassembly");
-            ui.selectable_value(&mut app.central_tab, CentralTab::MemoryView, "Memory View");
-        });
-        ui.separator();
-
-        match app.central_tab {
-            CentralTab::Editor => panels::render_editor(ui, app),
-            CentralTab::Disassembly => panels::render_disassembly(ui, app),
-            CentralTab::MemoryView => panels::render_memory_view(ui, app),
-        }
-    });
+    }
 }
