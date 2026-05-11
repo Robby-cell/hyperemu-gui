@@ -412,10 +412,6 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                                     .color(egui::Color32::LIGHT_GREEN),
                             );
 
-                            // ---------------------------------------------------------
-                            // NEW: Floating Window approach
-                            // ---------------------------------------------------------
-
                             // Generate a unique ID for this address's window state
                             let window_id = ui.id().with("ast_window").with(current_addr);
                             let mut show_ast =
