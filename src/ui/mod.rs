@@ -1,6 +1,8 @@
 pub mod panels;
 pub mod peripherals;
 
+use std::time::Duration;
+
 use crate::app::{CentralTab, EmuApp, LeftTab};
 use eframe::egui;
 
@@ -86,6 +88,8 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
                 } else {
                     if ui.button("▶ Run").clicked() {
                         app.is_running = true;
+                        app.unconsumed_time = Duration::ZERO;
+
                         let pc_reg = app.current_backend().pc_reg();
                         if let Some(emu) = &app.emu {
                             *app.ignore_next_bp.lock().unwrap() =
@@ -101,6 +105,46 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
                         }
                     }
                 }
+
+                ui.separator();
+
+                ui.add_sized(
+                    egui::vec2(200.0, ui.available_height()),
+                    egui::Slider::new(&mut app.clock_speed.0, 1..=16_000_000)
+                        .logarithmic(true)
+                        .text("Speed")
+                        // 1. Format the number into a beautiful string for the UI
+                        .custom_formatter(|n, _| {
+                            if n >= 1_000_000.0 {
+                                format!("{:.2} MHz", n / 1_000_000.0)
+                            } else if n >= 1_000.0 {
+                                format!("{:.1} kHz", n / 1_000.0)
+                            } else {
+                                format!("{} Hz", n as u64)
+                            }
+                        })
+                        // 2. Parse the user's custom string back into a raw number
+                        .custom_parser(|s| {
+                            let s = s.trim().to_lowercase();
+                            // Strip "hz" if they typed it
+                            let s = s.strip_suffix("hz").unwrap_or(&s).trim();
+
+                            let mut multiplier = 1.0;
+                            let mut num_str = s;
+
+                            // Check for 'k' (kilo) or 'm' (mega)
+                            if let Some(stripped) = s.strip_suffix('k') {
+                                multiplier = 1_000.0;
+                                num_str = stripped.trim();
+                            } else if let Some(stripped) = s.strip_suffix('m') {
+                                multiplier = 1_000_000.0;
+                                num_str = stripped.trim();
+                            }
+
+                            // Multiply the float and return it!
+                            num_str.parse::<f64>().ok().map(|n| n * multiplier)
+                        }),
+                );
             }
         });
     });

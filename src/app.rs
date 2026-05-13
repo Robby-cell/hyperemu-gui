@@ -5,6 +5,7 @@ use hyperemu::HyperEmu;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DeviceType {
@@ -21,12 +22,62 @@ pub struct MemMapRecord {
     pub dev_type: DeviceType,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct ClockSpeed(pub u64);
+
+impl ClockSpeed {
+    pub const fn new_hz(hz: u64) -> Self {
+        Self(hz)
+    }
+
+    pub const fn new_khz(khz: u64) -> Self {
+        Self::new_hz(khz * 1_000)
+    }
+
+    pub const fn new_mhz(mhz: u64) -> Self {
+        Self::new_hz(mhz * 1_000_000)
+    }
+
+    pub const fn hz(&self) -> u64 {
+        self.0
+    }
+
+    /// Calculates how many CPU cycles should execute within a given physical time duration
+    pub fn cycles_in_duration(&self, duration: Duration) -> u64 {
+        let nanos = duration.as_nanos();
+        // (nanos * Hz) / 1,000,000,000 ns
+        ((nanos * self.0 as u128) / 1_000_000_000) as u64
+    }
+
+    /// Calculates how much physical time it takes to execute a specific number of cycles
+    pub fn duration_for_cycles(&self, cycles: u64) -> Duration {
+        if self.0 == 0 {
+            return Duration::ZERO;
+        }
+        let nanos = (cycles as u128 * 1_000_000_000) / (self.0 as u128);
+        Duration::from_nanos(nanos as u64)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 #[serde(default)] // Allows adding new fields in the future without breaking old saves
 pub struct WorkspaceState {
     pub code: String,
     pub active_backend: usize,
     pub active_maps: Vec<MemMapRecord>,
+    pub clock_speed: ClockSpeed,
+}
+
+impl Default for WorkspaceState {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            active_backend: 0,
+            active_maps: Vec::new(),
+            clock_speed: ClockSpeed::new_mhz(10),
+        }
+    }
 }
 
 #[derive(PartialEq)]
@@ -60,6 +111,9 @@ pub struct EmuApp {
     pub emu: Option<HyperEmu>,
     pub is_running: bool,
     pub error_msg: Option<String>,
+
+    pub clock_speed: ClockSpeed,
+    pub unconsumed_time: Duration,
 
     pub left_tab: LeftTab,
     pub central_tab: CentralTab,
@@ -100,6 +154,8 @@ impl Default for EmuApp {
             emu: None,
             is_running: false,
             error_msg: None,
+            clock_speed: ClockSpeed::new_khz(10),
+            unconsumed_time: Duration::ZERO,
             left_tab: LeftTab::Hardware,
             central_tab: CentralTab::Editor,
             mobile_tab: MobileTab::Editor,
@@ -154,8 +210,11 @@ impl eframe::App for EmuApp {
             code: self.code.clone(),
             active_backend: self.active_backend,
             active_maps: self.active_maps.clone(),
+            clock_speed: self.clock_speed,
         };
-        eframe::set_value(storage, eframe::APP_KEY, &state);
+        if let Ok(json) = serde_json::to_string(&state) {
+            storage.set_string(eframe::APP_KEY, json);
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -164,23 +223,55 @@ impl eframe::App for EmuApp {
                 self.code = state.code;
                 self.active_backend = state.active_backend;
                 self.active_maps = state.active_maps;
+                self.clock_speed = state.clock_speed;
+
                 self.emu = None;
+                self.gui_peripherals.clear();
+                self.error_msg = None;
+                self.is_running = false;
             }
         }
 
         crate::ui::render_layout(self, ui);
 
         if self.is_running {
-            self.snapshot_registers();
-            if let Some(emu) = &mut self.emu {
-                match emu.step_batch(256) {
-                    Ok(_) => ui.ctx().request_repaint(),
-                    Err(hyperemu::EmuError::Breakpoint(_)) => self.is_running = false,
-                    Err(e) => {
-                        self.error_msg = Some(format!("Runtime Error: {:?}", e));
-                        self.is_running = false;
+            // 1. Get raw UI delta time and convert cleanly into a Rust Duration
+            let dt_secs = ui.input(|i| i.unstable_dt).max(0.001);
+            let dt = Duration::from_secs_f32(dt_secs);
+
+            // 2. Accumulate real physical time
+            self.unconsumed_time += dt;
+
+            // 3. Ask our domain object how many cycles we should execute in this time frame
+            let mut batch = self.clock_speed.cycles_in_duration(self.unconsumed_time) as usize;
+
+            // Cap at 500k so we don't freeze the UI on max speed
+            if batch > 500_000 {
+                batch = 500_000;
+                // Cap the unconsumed time to match, so it doesn't wind up infinitely in the background
+                self.unconsumed_time = self.clock_speed.duration_for_cycles(500_000);
+            }
+
+            if batch > 0 {
+                // Remove ONLY the exact time it took to run this batch
+                self.unconsumed_time -= self.clock_speed.duration_for_cycles(batch as u64);
+                self.snapshot_registers();
+
+                if let Some(emu) = &mut self.emu {
+                    match emu.step_batch(batch as _) {
+                        Ok(_) => ui.ctx().request_repaint(),
+                        Err(hyperemu::EmuError::Breakpoint(_)) => {
+                            self.is_running = false;
+                        }
+                        Err(e) => {
+                            self.error_msg = Some(format!("Runtime Error: {:?}", e));
+                            self.is_running = false;
+                        }
                     }
                 }
+            } else {
+                // Need to request repaint if the clock speed is extremely slow (e.g. 1 Hz)
+                ui.ctx().request_repaint();
             }
         }
     }
@@ -212,6 +303,7 @@ impl EmuApp {
             code: self.code.clone(),
             active_backend: self.active_backend,
             active_maps: self.active_maps.clone(),
+            clock_speed: self.clock_speed,
         };
 
         #[cfg(not(target_arch = "wasm32"))]

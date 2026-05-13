@@ -202,12 +202,12 @@ dependencies = [
 [[package]]
 name = "armv7-disassembler"
 version = "0.3.0"
-source = "git+https://github.com/Robby-cell/armv7-disassembler.git?branch=main#382b6596b56806aff9cbc2719efc0d22cb7e4a17"
+source = "git+https://github.com/Robby-cell/armv7-disassembler.git?branch=main#6600fa9cced50e2d5b6a3a5676fd26e31a8dba45"
 
 [[package]]
 name = "armv7-encoder"
 version = "0.3.5"
-source = "git+https://github.com/Robby-cell/armv7-encoder.git?branch=main#054758bb390129ca73cf1f277aee9042117ade1c"
+source = "git+https://github.com/Robby-cell/armv7-encoder.git?branch=main#6f33747c1b09dbd6b14bcc7be9d363024c2e298e"
 dependencies = [
  "nom",
 ]
@@ -1488,7 +1488,7 @@ dependencies = [
 [[package]]
 name = "hyperemu"
 version = "0.1.0"
-source = "git+https://github.com/Robby-cell/hyperemu.git?branch=main#146ac94b124a5c42464036dda1c229e66e11ed57"
+source = "git+https://github.com/Robby-cell/hyperemu.git?branch=main#2c17b17813e3a8cce0d8f722629d113aaf3766d1"
 dependencies = [
  "bitflags 2.11.1",
  "gdbstub",
