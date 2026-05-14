@@ -28,6 +28,11 @@ fn main() {
     use eframe::*;
     use wasm_bindgen::JsCast;
 
+    // Redirect log messages to the JavaScript console
+    WebLogger::init(log::LevelFilter::Debug).ok();
+    // Redirect panics to the console so we can debug easily
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
     wasm_bindgen_futures::spawn_local(async {
         let window = web_sys::window().expect("no window");
         let document = window.document().expect("no document");
