@@ -181,8 +181,6 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
 
     ui.heading("Assembly Code");
 
-    // MOBILE CODE:
-    // Add a helpful hint for mobile users
     if is_mobile {
         ui.label(
             egui::RichText::new(
@@ -195,8 +193,8 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
 
     let bps_arc = Arc::clone(&app.breakpoints);
     ui.horizontal(|ui| {
-        ui.label("Add Breakpoint (Line):");
-        ui.add(egui::TextEdit::singleline(&mut app.breakpoint_input).desired_width(50.0));
+        ui.label("Add Breakpoint:");
+        ui.add(egui::TextEdit::singleline(&mut app.breakpoint_input).desired_width(40.0));
         if ui.button("Add").clicked() {
             if let Ok(line) = app.breakpoint_input.parse::<usize>() {
                 if let Some(&pc) = app.line_to_pc.get(&(line.saturating_sub(1))) {
@@ -216,87 +214,39 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
         .as_ref()
         .map_or(0, |e| e.reg_read(pc_reg).unwrap_or(0));
     let active_line = app.pc_to_line.get(&current_pc).copied();
-
     let font_id = egui::TextStyle::Monospace.resolve(ui.style());
-    let row_height = ui.fonts_mut(|f| f.row_height(&font_id));
-
-    // TextEdit has a default internal Y margin of 4.0. We use this to align the gutter.
-    let text_margin_y = 4.0;
 
     let prev_scroll_width = ui.spacing().scroll.bar_width;
     if is_mobile {
-        ui.spacing_mut().scroll.bar_width = 10.0; // Make it massive and easy to grab!
+        ui.spacing_mut().scroll.bar_width = 24.0;
     }
 
     egui::ScrollArea::both()
         .id_salt("code_scroll")
+        .scroll_bar_visibility(if is_mobile {
+            egui::scroll_area::ScrollBarVisibility::AlwaysVisible
+        } else {
+            egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded
+        })
         .show(ui, |ui| {
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 0.0;
 
-                let num_lines = app.code.split('\n').count().max(1);
+                let gutter_width = 45.0;
+                let (gutter_id, gutter_initial_rect) =
+                    ui.allocate_space(egui::vec2(gutter_width, 0.0));
 
-                // The Gutter
-                let (gutter_resp, painter) = ui.allocate_painter(
-                    egui::vec2(
-                        45.0,
-                        (num_lines as f32 * row_height) + (text_margin_y * 2.0),
-                    ),
-                    egui::Sense::click(),
-                );
-
-                let mut bps = bps_arc.lock().unwrap();
-
-                if gutter_resp.clicked() {
-                    if let Some(pos) = gutter_resp.interact_pointer_pos() {
-                        let y_offset = pos.y - gutter_resp.rect.top() - text_margin_y;
-                        if y_offset >= 0.0 {
-                            let mut line_idx = (y_offset / row_height) as usize;
-                            line_idx = line_idx.min(num_lines.saturating_sub(1));
-
-                            if let Some(&pc) = app.line_to_pc.get(&line_idx) {
-                                if bps.contains(&pc) {
-                                    bps.remove(&pc);
-                                } else {
-                                    bps.insert(pc);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ui.is_rect_visible(gutter_resp.rect) {
-                    painter.rect_filled(gutter_resp.rect, 0.0, egui::Color32::from_rgb(30, 30, 30));
-
-                    for i in 0..num_lines {
-                        let y = gutter_resp.rect.top() + text_margin_y + (i as f32 * row_height);
-                        painter.text(
-                            egui::pos2(gutter_resp.rect.right() - 5.0, y),
-                            egui::Align2::RIGHT_TOP,
-                            (i + 1).to_string(),
-                            font_id.clone(),
-                            egui::Color32::DARK_GRAY,
-                        );
-
-                        if app.line_to_pc.get(&i).map_or(false, |pc| bps.contains(pc)) {
-                            painter.circle_filled(
-                                egui::pos2(gutter_resp.rect.left() + 10.0, y + (row_height / 2.0)),
-                                4.0,
-                                egui::Color32::RED,
-                            );
-                        }
-                    }
-                }
-                drop(bps);
-
-                // The Text Editor
                 let backend = app.current_backend();
                 let mut layouter = |ui: &egui::Ui, buffer: &dyn egui::TextBuffer, _wrap: f32| {
                     let mut job = egui::text::LayoutJob::default();
+                    job.wrap.max_width = f32::INFINITY;
+
                     let string = buffer.as_str();
                     let bps = bps_arc.lock().unwrap();
+                    let parts: Vec<&str> = string.split('\n').collect();
+                    let total_parts = parts.len();
 
-                    for (i, line) in string.split('\n').enumerate() {
+                    for (i, line) in parts.iter().enumerate() {
                         let has_bp = app.line_to_pc.get(&i).map_or(false, |pc| bps.contains(pc));
                         let bg_color = if Some(i) == active_line {
                             egui::Color32::from_rgb(80, 80, 0)
@@ -314,38 +264,92 @@ pub fn render_editor(ui: &mut egui::Ui, app: &mut EmuApp) {
                             font_id.clone(),
                         );
 
-                        job.append(
-                            "\n",
-                            0.0,
-                            egui::text::TextFormat {
-                                font_id: font_id.clone(),
-                                color: egui::Color32::TRANSPARENT,
-                                background: bg_color,
-                                ..Default::default()
-                            },
-                        );
+                        if i < total_parts - 1 {
+                            job.append(
+                                "\n",
+                                0.0,
+                                egui::text::TextFormat {
+                                    font_id: font_id.clone(),
+                                    color: egui::Color32::TRANSPARENT,
+                                    background: bg_color,
+                                    ..Default::default()
+                                },
+                            );
+                        }
                     }
                     ui.fonts_mut(|f| f.layout_job(job))
                 };
 
                 let prev_extreme = ui.visuals().extreme_bg_color;
                 ui.visuals_mut().extreme_bg_color = egui::Color32::TRANSPARENT;
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
 
-                ui.add(
-                    egui::TextEdit::multiline(&mut app.code)
-                        .code_editor()
-                        .lock_focus(true)
-                        .layouter(&mut layouter)
-                        .margin(egui::vec2(8.0, text_margin_y)) // Match gutter margin exactly
-                        .desired_width(ui.available_width()),
-                );
+                let output = egui::TextEdit::multiline(&mut app.code)
+                    .code_editor()
+                    .lock_focus(true)
+                    .layouter(&mut layouter)
+                    .margin(egui::vec2(8.0, 4.0))
+                    .desired_width(f32::INFINITY)
+                    .show(ui);
 
                 ui.visuals_mut().extreme_bg_color = prev_extreme;
+
+                let galley = output.galley;
+
+                let gutter_rect = egui::Rect::from_min_size(
+                    gutter_initial_rect.min,
+                    egui::vec2(gutter_width, output.response.rect.height()),
+                );
+
+                let gutter_resp = ui.interact(gutter_rect, gutter_id, egui::Sense::click());
+                let painter = ui.painter_at(gutter_rect);
+                painter.rect_filled(gutter_rect, 0.0, egui::Color32::from_rgb(30, 30, 30));
+
+                let mut bps = bps_arc.lock().unwrap();
+
+                if gutter_resp.clicked() {
+                    if let Some(pos) = gutter_resp.interact_pointer_pos() {
+                        for (i, row) in galley.rows.iter().enumerate() {
+                            let row_top = output.galley_pos.y + row.rect().min.y;
+                            let row_bottom = output.galley_pos.y + row.rect().max.y;
+
+                            if pos.y >= row_top && pos.y <= row_bottom {
+                                if let Some(&pc) = app.line_to_pc.get(&i) {
+                                    if bps.contains(&pc) {
+                                        bps.remove(&pc);
+                                    } else {
+                                        bps.insert(pc);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                for (i, row) in galley.rows.iter().enumerate() {
+                    let text_y = output.galley_pos.y + row.rect().min.y;
+
+                    painter.text(
+                        egui::pos2(gutter_rect.right() - 5.0, text_y),
+                        egui::Align2::RIGHT_TOP,
+                        (i + 1).to_string(),
+                        font_id.clone(),
+                        egui::Color32::DARK_GRAY,
+                    );
+
+                    if app.line_to_pc.get(&i).map_or(false, |pc| bps.contains(pc)) {
+                        let text_center_y = output.galley_pos.y + row.rect().center().y;
+                        painter.circle_filled(
+                            egui::pos2(gutter_rect.left() + 10.0, text_center_y),
+                            4.0,
+                            egui::Color32::RED,
+                        );
+                    }
+                }
             });
         });
 
-    // MOBILE CODE:
-    // Restore the scrollbar width for the rest of the application
     if is_mobile {
         ui.spacing_mut().scroll.bar_width = prev_scroll_width;
     }
@@ -368,17 +372,16 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
 
         egui::ScrollArea::both()
             .id_salt("disasm_scroll")
-            .auto_shrink([false, false]) // <-- Forces the scroll area to expand fully!
+            .auto_shrink([false, false])
             .show(ui, |ui| {
-                // Calculate exactly 1/4th of the screen width for our 4 columns
                 let col_width = ui.available_width() / 4.0;
 
                 egui::Grid::new("disasm_grid")
                     .striped(true)
                     .spacing([0.0, 2.0])
-                    .min_col_width(col_width) // <-- Forces the grid columns to stretch!
+                    .min_col_width(col_width)
                     .show(ui, |ui| {
-                        // --- HEADER ROW ---
+                        // HEADER ROW
                         let header_frame = egui::Frame::NONE.inner_margin(egui::vec2(10.0, 4.0));
 
                         header_frame.show(ui, |ui| {
@@ -399,7 +402,7 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                         });
                         ui.end_row();
 
-                        // --- DATA ROWS ---
+                        // DATA ROWS
                         let mut current_addr = start_addr;
 
                         for _ in 0..64 {
@@ -565,10 +568,10 @@ pub fn render_memory_map(ui: &mut egui::Ui, app: &mut EmuApp) {
                                 .clicked()
                             {
                                 to_remove = Some(i);
-                                ui.data_mut(|d| d.insert_temp(confirm_id, false)); // Reset state
+                                ui.data_mut(|d| d.insert_temp(confirm_id, false));
                             }
                             if ui.button("Cancel").clicked() {
-                                ui.data_mut(|d| d.insert_temp(confirm_id, false)); // Cancel state
+                                ui.data_mut(|d| d.insert_temp(confirm_id, false));
                             }
                         } else {
                             if ui.button("Remove").clicked() {
