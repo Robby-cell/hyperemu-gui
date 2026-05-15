@@ -79,6 +79,10 @@ impl ArchBackend for Armv7Backend {
         Arch::Armv7
     }
 
+    fn id(&self) -> &'static str {
+        "armv7"
+    }
+
     fn name(&self) -> &'static str {
         "ARMv7 (32-bit)"
     }

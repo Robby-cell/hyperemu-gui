@@ -14,42 +14,44 @@ use x86_translator::{assembler::Assembler, disassembler::Disassembler};
 
 pub struct X86Backend;
 
-const STARTER_CODE: &str = r#"; x86 32-bit GPIO Demo
+const STARTER_CODE: &str = r#".text
 .global _start
 _start:
-    ; Configure GPIO Base Address (0x40000000)
-    MOV EAX, 0x40000000
+    ; UART base address
+    mov ebx, 0x10000000
 
-    ; Set PA5 as output (MODER bit 10 = 1) -> 0x400
-    MOV EBX, 0x400
-    MOV [EAX], EBX
+    ; Pointer to string
+    mov ebp, message
+print_loop:
+    mov al, byte ptr [ebp]
+    ; null terminator?
+    test al, al
+    jz finished_printing
 
-loop:
-    ; 1. Read the IDR (Input Data Register) at offset 0x10
-    MOV ECX, [EAX+0x10]
-    
-    ; 2. Mask out everything except bit 0
-    AND ECX, 1
-    
-    ; 3. Is the button pressed?
-    CMP ECX, 1
-    JE turn_on
+    ; write byte to UART DATA register
+    mov byte ptr [ebx], al
+    add ebp, 1
+    jmp print_loop
 
-turn_off:
-    MOV EDX, 0
-    MOV [EAX+0x14], EDX
-    JMP loop
+finished_printing:
+    nop
+done:
+    jmp done
 
-turn_on:
-    ; Turn LED ON (ODR bit 5 = 1 -> 0x20)
-    MOV EDX, 0x20
-    MOV [EAX+0x14], EDX
-    JMP loop
+message:
+	.ascii "Hello, World!\n"
+_message_null: .byte 0
+    .align 4
+message_len: .dword _message_null - message
 "#;
 
 impl ArchBackend for X86Backend {
     fn arch(&self) -> Arch {
         Arch::X86
+    }
+
+    fn id(&self) -> &'static str {
+        "x86"
     }
 
     fn name(&self) -> &'static str {

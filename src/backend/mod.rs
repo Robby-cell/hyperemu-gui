@@ -49,6 +49,9 @@ pub struct AssembleResult {
 pub trait ArchBackend {
     fn arch(&self) -> Arch;
 
+    /// A stable, lowercase string ID used for serialization (e.g. "armv7", "x86")
+    fn id(&self) -> &'static str;
+
     fn name(&self) -> &'static str;
 
     fn default_code(&self) -> &'static str;

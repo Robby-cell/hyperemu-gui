@@ -61,22 +61,55 @@ impl ClockSpeed {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(default)] // Allows adding new fields in the future without breaking old saves
-pub struct WorkspaceState {
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+pub struct BackendWorkspace {
     pub code: String,
-    pub active_backend: usize,
     pub active_maps: Vec<MemMapRecord>,
     pub clock_speed: ClockSpeed,
+}
+
+impl Default for BackendWorkspace {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            active_maps: vec![
+                MemMapRecord {
+                    name: "Code".into(),
+                    start: 0x0000,
+                    size: 0x4000,
+                    dev_type: DeviceType::Ram,
+                },
+                MemMapRecord {
+                    name: "Stack".into(),
+                    start: 0x8000,
+                    size: 0x4000,
+                    dev_type: DeviceType::Ram,
+                },
+                MemMapRecord {
+                    name: "Main Terminal".into(),
+                    start: 0x10000000,
+                    size: 0x1000,
+                    dev_type: DeviceType::Uart,
+                },
+            ],
+            clock_speed: ClockSpeed::new_khz(10),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+pub struct WorkspaceState {
+    pub active_backend_id: String,
+    pub workspaces: HashMap<String, BackendWorkspace>,
 }
 
 impl Default for WorkspaceState {
     fn default() -> Self {
         Self {
-            code: String::new(),
-            active_backend: 0,
-            active_maps: Vec::new(),
-            clock_speed: ClockSpeed::new_mhz(10),
+            active_backend_id: "armv7".into(),
+            workspaces: HashMap::new(),
         }
     }
 }
@@ -107,6 +140,8 @@ pub enum MobileTab {
 pub struct EmuApp {
     pub backends: Vec<Arc<dyn ArchBackend>>,
     pub active_backend: usize,
+
+    pub workspaces: HashMap<String, BackendWorkspace>,
 
     pub code: String,
     pub emu: Option<HyperEmu>,
@@ -152,6 +187,7 @@ impl Default for EmuApp {
         Self {
             backends,
             active_backend: 0,
+            workspaces: HashMap::new(),
             code,
             emu: None,
             is_running: false,
@@ -206,13 +242,87 @@ impl Default for EmuApp {
     }
 }
 
-impl eframe::App for EmuApp {
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        let state = WorkspaceState {
+impl EmuApp {
+    /// Syncs the active UI values back into the `workspaces` map using the stable ID
+    pub fn sync_workspace(&mut self) {
+        let backend_id = self.current_backend().id().to_string();
+        let ws = BackendWorkspace {
             code: self.code.clone(),
-            active_backend: self.active_backend,
             active_maps: self.active_maps.clone(),
             clock_speed: self.clock_speed,
+        };
+        self.workspaces.insert(backend_id, ws);
+    }
+
+    /// Handles switching to a new architecture cleanly
+    pub fn switch_backend(&mut self, new_idx: usize) {
+        self.sync_workspace();
+
+        self.active_backend = new_idx;
+        let backend_id = self.backends[new_idx].id().to_string(); // Use ID instead of name
+
+        if let Some(ws) = self.workspaces.get(&backend_id) {
+            self.code = ws.code.clone();
+            self.active_maps = ws.active_maps.clone();
+            self.clock_speed = ws.clock_speed;
+        } else {
+            self.code = self.backends[new_idx].default_code().to_string();
+            let def_ws = BackendWorkspace::default();
+            self.active_maps = def_ws.active_maps;
+            self.clock_speed = def_ws.clock_speed;
+        }
+
+        self.emu = None;
+        self.gui_peripherals.clear();
+        self.error_msg = None;
+        self.is_running = false;
+        self.prev_regs.clear();
+        self.prev_stack.clear();
+        self.pc_to_line.clear();
+        self.line_to_pc.clear();
+        self.breakpoints.lock().unwrap().clear();
+    }
+
+    /// Applies a completely loaded WorkspaceState
+    pub fn apply_workspace_state(&mut self, state: WorkspaceState) {
+        self.workspaces = state.workspaces;
+
+        // Safely resolve the string ID back to an array index
+        let mut target_idx = 0; // Default fallback
+        for (i, backend) in self.backends.iter().enumerate() {
+            if backend.id() == state.active_backend_id {
+                target_idx = i;
+                break;
+            }
+        }
+
+        self.active_backend = target_idx;
+        let backend_id = self.backends[target_idx].id().to_string();
+
+        if let Some(ws) = self.workspaces.get(&backend_id) {
+            self.code = ws.code.clone();
+            self.active_maps = ws.active_maps.clone();
+            self.clock_speed = ws.clock_speed;
+        } else {
+            self.code = self.backends[target_idx].default_code().to_string();
+            let def_ws = BackendWorkspace::default();
+            self.active_maps = def_ws.active_maps;
+            self.clock_speed = def_ws.clock_speed;
+        }
+
+        self.emu = None;
+        self.gui_peripherals.clear();
+        self.error_msg = None;
+        self.is_running = false;
+    }
+}
+
+impl eframe::App for EmuApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.sync_workspace();
+        let state = WorkspaceState {
+            active_backend_id: self.current_backend().id().to_string(),
+            workspaces: self.workspaces.clone(),
         };
         if let Ok(json) = serde_json::to_string(&state) {
             storage.set_string(eframe::APP_KEY, json);
@@ -220,18 +330,13 @@ impl eframe::App for EmuApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        if let Ok(mut pending) = self.pending_load.lock() {
-            if let Some(state) = pending.take() {
-                self.code = state.code;
-                self.active_backend = state.active_backend;
-                self.active_maps = state.active_maps;
-                self.clock_speed = state.clock_speed;
-
-                self.emu = None;
-                self.gui_peripherals.clear();
-                self.error_msg = None;
-                self.is_running = false;
-            }
+        let state = if let Ok(mut pending) = self.pending_load.lock() {
+            pending.take()
+        } else {
+            None
+        };
+        if let Some(state) = state {
+            self.apply_workspace_state(state);
         }
 
         crate::ui::render_layout(self, ui);
@@ -286,26 +391,19 @@ impl EmuApp {
         // Attempt to load from storage
         if let Some(storage) = cc.storage {
             if let Some(state) = eframe::get_value::<WorkspaceState>(storage, eframe::APP_KEY) {
-                // If we found a saved state, overwrite the defaults
-                app.code = state.code;
-                app.active_backend = state.active_backend;
-
-                // Only restore maps if the array isn't empty, otherwise keep defaults
-                if !state.active_maps.is_empty() {
-                    app.active_maps = state.active_maps;
-                }
+                // We use our new helper method to safely unpack the HashMaps and String IDs!
+                app.apply_workspace_state(state);
             }
         }
 
         app
     }
 
-    pub fn trigger_save(&self) {
+    pub fn trigger_save(&mut self) {
+        self.sync_workspace();
         let state = WorkspaceState {
-            code: self.code.clone(),
-            active_backend: self.active_backend,
-            active_maps: self.active_maps.clone(),
-            clock_speed: self.clock_speed,
+            active_backend_id: self.current_backend().id().to_string(),
+            workspaces: self.workspaces.clone(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]

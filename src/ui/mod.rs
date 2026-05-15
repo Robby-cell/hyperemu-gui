@@ -60,16 +60,19 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
             egui::ComboBox::from_id_salt("arch_combo")
                 .selected_text(app.current_backend().name())
                 .show_ui(ui, |ui| {
+                    let mut idx = None;
                     for (i, backend) in app.backends.iter().enumerate() {
                         if ui
                             .selectable_label(app.active_backend == i, backend.name())
                             .clicked()
                         {
-                            app.active_backend = i;
-                            if app.code.trim().is_empty() {
-                                app.code = backend.default_code().to_string();
+                            if app.active_backend != i {
+                                idx = Some(i);
                             }
                         }
+                    }
+                    if let Some(idx) = idx {
+                        app.switch_backend(idx);
                     }
                 });
 
