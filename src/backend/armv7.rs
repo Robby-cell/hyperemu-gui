@@ -1,10 +1,10 @@
 use super::ArchBackend;
 use crate::{
-    backend::DisassemblyInfo,
+    backend::{AssembleResult, DisassemblyInfo},
     ui::peripherals::{GuiPeripheral, PeripheralCategory},
 };
-use armv7_disassembler::disassembler::{DisassemblerOptions, Endian, disassemble_with_options};
-use armv7_encoder::assembler::assemble;
+use armv7_disassembler::disassembler::{Decoder, Endian};
+use armv7_encoder::assembler::Encoder;
 use eframe::egui;
 use hyperemu::{
     Arch, CpuMode, HyperEmu,
@@ -99,43 +99,57 @@ impl ArchBackend for Armv7Backend {
         13
     }
 
+    fn num_registers(&self) -> usize {
+        17 // R0 through R15 (16) + CPSR (1)
+    }
+
+    fn word_size(&self) -> usize {
+        4 // 32-bit Architecture
+    }
+
     fn setup_startup_state(&self, emu: &mut HyperEmu) {
         emu.reg_write(self.sp_reg(), 0xB000).unwrap(); // Standard SP
         emu.reg_write(self.pc_reg(), 0).unwrap(); // Standard PC
     }
 
-    fn assemble(&self, code: &str) -> Result<Vec<u8>, String> {
-        match assemble(code) {
-            Ok(words) => {
+    fn assemble(&self, code: &str) -> Result<AssembleResult, String> {
+        match Encoder::new().start_address(0).assemble(code) {
+            Ok(res) => {
                 let mut bytes = Vec::new();
-                for w in words {
+                for w in res.bytes {
                     bytes.extend_from_slice(&w.to_le_bytes());
                 }
-                Ok(bytes)
+
+                // ARM instructions are fixed 4-bytes, so mapping is straightforward here
+                let mut pc_to_line = HashMap::new();
+                let mut line_to_pc = HashMap::new();
+                let mut current_pc = 0u64;
+
+                for (i, line) in code.split('\n').enumerate() {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty()
+                        || trimmed.starts_with('@')
+                        || trimmed.ends_with(':')
+                        || trimmed.starts_with('.')
+                    {
+                        continue;
+                    }
+                    pc_to_line.insert(current_pc, i);
+                    line_to_pc.insert(i, current_pc);
+                    current_pc += 4;
+                }
+
+                Ok(AssembleResult {
+                    bytes,
+                    entry_point: res.entry_point,
+                    labels: res.labels,
+                    instruction_count: res.instruction_count,
+                    line_to_pc,
+                    pc_to_line,
+                })
             }
             Err(e) => Err(format!("{:?}", e)),
         }
-    }
-
-    fn build_pc_map(&self, code: &str) -> (HashMap<u64, usize>, HashMap<usize, u64>) {
-        let mut pc_to_line = HashMap::new();
-        let mut line_to_pc = HashMap::new();
-        let mut current_pc = 0u64;
-
-        for (i, line) in code.split('\n').enumerate() {
-            let trimmed = line.trim();
-            if trimmed.is_empty()
-                || trimmed.starts_with('@')
-                || trimmed.ends_with(':')
-                || trimmed.starts_with('.')
-            {
-                continue;
-            }
-            pc_to_line.insert(current_pc, i);
-            line_to_pc.insert(i, current_pc);
-            current_pc += 4;
-        }
-        (pc_to_line, line_to_pc)
     }
 
     fn disassemble(&self, addr: u64, emu: &mut HyperEmu) -> DisassemblyInfo {
@@ -164,12 +178,10 @@ impl ArchBackend for Armv7Backend {
                 u32::from_le_bytes(bytes)
             };
 
-            let opts = DisassemblerOptions {
-                start_address: addr as u32,
-                endian, // Pass the dynamic endianness to the armv7-disassembler
-            };
-
-            let dis_str = disassemble_with_options(&bytes, opts)
+            let dis_str = Decoder::new()
+                .start_address(addr as _)
+                .endian(endian)
+                .disassemble(&bytes)
                 .unwrap_or_default()
                 .join(" ");
 

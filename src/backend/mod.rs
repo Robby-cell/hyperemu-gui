@@ -1,4 +1,5 @@
 pub mod armv7;
+pub mod x86;
 
 use crate::ui::peripherals::GuiPeripheral;
 use eframe::egui;
@@ -31,6 +32,20 @@ impl DisassemblyInfo {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct AssembleResult {
+    pub bytes: Vec<u8>,
+    pub entry_point: u64,
+    /// Maps a label/function name to its exact physical byte address (IP)
+    pub labels: HashMap<String, u64>,
+    /// Total number of physical instructions and data directives emitted
+    pub instruction_count: usize,
+    /// Maps exact UI text line numbers to Physical Memory PCs
+    pub line_to_pc: HashMap<usize, u64>,
+    /// Maps Physical Memory PCs back to UI text lines for breakpoints
+    pub pc_to_line: HashMap<u64, usize>,
+}
+
 pub trait ArchBackend {
     fn arch(&self) -> Arch;
 
@@ -44,11 +59,15 @@ pub trait ArchBackend {
 
     fn sp_reg(&self) -> usize;
 
+    /// Total number of CPU registers available to be snapshotted
+    fn num_registers(&self) -> usize;
+
+    /// The architecture's standard machine word size in bytes (e.g., 4 for 32-bit, 8 for 64-bit)
+    fn word_size(&self) -> usize;
+
     fn setup_startup_state(&self, emu: &mut HyperEmu);
 
-    fn assemble(&self, code: &str) -> Result<Vec<u8>, String>;
-
-    fn build_pc_map(&self, code: &str) -> (HashMap<u64, usize>, HashMap<usize, u64>);
+    fn assemble(&self, code: &str) -> Result<AssembleResult, String>;
 
     /// Disassembles the instruction at `addr`.
     /// Returns (Hex Bytes String, Disassembly String, Internal Enum String, Instruction Byte Size)

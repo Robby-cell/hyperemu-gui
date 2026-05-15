@@ -201,13 +201,13 @@ dependencies = [
 
 [[package]]
 name = "armv7-disassembler"
-version = "0.3.0"
-source = "git+https://github.com/Robby-cell/armv7-disassembler.git?branch=main#6600fa9cced50e2d5b6a3a5676fd26e31a8dba45"
+version = "0.3.2"
+source = "git+https://github.com/Robby-cell/armv7-disassembler.git?tag=0.3.2#a13d090126a85660d9e6a2f39b0937910fda9374"
 
 [[package]]
 name = "armv7-encoder"
-version = "0.3.5"
-source = "git+https://github.com/Robby-cell/armv7-encoder.git?branch=main#6f33747c1b09dbd6b14bcc7be9d363024c2e298e"
+version = "0.3.7"
+source = "git+https://github.com/Robby-cell/armv7-encoder.git?tag=0.3.7#48ec5d4613b978ac3423d2b154cbd6602e189f82"
 dependencies = [
  "nom",
 ]
@@ -953,6 +953,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "x86-translator",
 ]
 
 [[package]]
@@ -1500,7 +1501,7 @@ dependencies = [
 [[package]]
 name = "hyperemu"
 version = "0.1.0"
-source = "git+https://github.com/Robby-cell/hyperemu.git?branch=main#2c17b17813e3a8cce0d8f722629d113aaf3766d1"
+source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.0#c1fe13511e29af90ec2ec4bd9b73c8141961e042"
 dependencies = [
  "bitflags 2.11.1",
  "gdbstub",
@@ -1508,6 +1509,15 @@ dependencies = [
  "goblin",
  "log",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "iced-x86"
+version = "1.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c447cff8c7f384a7d4f741cfcff32f75f3ad02b406432e8d6c878d56b1edf6b"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]
@@ -1758,6 +1768,12 @@ dependencies = [
  "euclid",
  "smallvec",
 ]
+
+[[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "leb128fmt"
@@ -4355,6 +4371,15 @@ name = "x11rb-protocol"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
+
+[[package]]
+name = "x86-translator"
+version = "0.1.2"
+source = "git+https://github.com/Robby-cell/x86-translator.git?tag=0.1.2#457cb8dc05540cf3bd6b64cebc5f13de32847556"
+dependencies = [
+ "iced-x86",
+ "nom",
+]
 
 [[package]]
 name = "xcursor"
