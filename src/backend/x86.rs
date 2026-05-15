@@ -86,59 +86,30 @@ impl ArchBackend for X86Backend {
     }
 
     fn assemble(&self, code: &str) -> Result<AssembleResult, String> {
+        // We pass the entire code block to the assembler exactly once.
+        // Removed: The PC mapping feature that tried to loop line-by-line and parse lengths.
         let res = Assembler::new()
             .bitness(32)
             .assemble(code)
-            .map_err(|e| format!("{:?}", e))?;
+            .map_err(|e| format!("{}", e))?; // Changed from {:?} to {} to render the Display message cleanly
 
-        // 2. We need to map UI source-code lines to physical Program Counter addresses.
-        // Because x86 is variable length, we use the emulator's internal decoder to measure the
-        // byte lengths of the generated instructions.
-        let mut pc_to_line = HashMap::new();
-        let mut line_to_pc = HashMap::new();
-        let mut current_pc = res.entry_point;
-
-        let mut decoder = X86Decoder::new(&res.bytes);
-        let mut inst_lengths = Vec::new();
-
-        while decoder.consumed() < res.bytes.len() {
-            let start = decoder.consumed();
-            let _ = decoder.decode_instr(); // Parse just to advance the cursor
-            let len = decoder.consumed() - start;
-            if len == 0 {
-                break;
-            } // Failsafe
-            inst_lengths.push(len);
-        }
-
-        // 3. Correlate lengths back to the non-empty lines in the editor
-        let mut inst_idx = 0;
-        for (i, line) in code.split('\n').enumerate() {
-            let trimmed = line.trim();
-            // Skip comments, empty lines, and labels/directives
-            if trimmed.is_empty()
-                || trimmed.starts_with(';')
-                || trimmed.ends_with(':')
-                || trimmed.starts_with('.')
-            {
-                continue;
-            }
-
-            if inst_idx < inst_lengths.len() {
-                pc_to_line.insert(current_pc, i);
-                line_to_pc.insert(i, current_pc);
-                current_pc += inst_lengths[inst_idx] as u64;
-                inst_idx += 1;
-            }
-        }
+        println!("{:?} | {:?}", res.line_to_ip, res.ip_to_line);
 
         Ok(AssembleResult {
             bytes: res.bytes,
             entry_point: res.entry_point,
             labels: res.labels,
             instruction_count: res.instruction_count,
-            line_to_pc,
-            pc_to_line,
+            line_to_pc: res
+                .line_to_ip
+                .into_iter()
+                .map(|(line, ip)| (line - 1, ip))
+                .collect(),
+            pc_to_line: res
+                .ip_to_line
+                .into_iter()
+                .map(|(ip, line)| (ip, line - 1))
+                .collect(),
         })
     }
 
@@ -146,16 +117,14 @@ impl ArchBackend for X86Backend {
         let mut bytes = [0u8; 15]; // 15 bytes is the max instruction length for x86
 
         if emu.bus.read_bytes(addr, &mut bytes).is_ok() {
-            // 1. Use the Emulator's internal AST to determine exact byte size
             let mut emu_decoder = X86Decoder::new(&bytes);
             let internal_ast = emu_decoder.decode_instr();
 
             let mut size = emu_decoder.consumed() as u64;
             if size == 0 {
                 size = 1;
-            } // Fallback for total garbage
+            }
 
-            // Slice only the exact bytes that belong to THIS instruction
             let instr_bytes = &bytes[0..size as usize];
 
             let bytes_str = instr_bytes
@@ -166,14 +135,13 @@ impl ArchBackend for X86Backend {
 
             let internal_enum = format!("{:#?}", internal_ast);
 
-            // 2. Use the x86_translator (iced_x86) to generate a beautiful Intel-syntax string
             let dis_str = match Disassembler::new()
                 .bitness(32)
                 .start_address(addr)
                 .disassemble(instr_bytes)
             {
                 Ok(results) if !results.is_empty() => results[0].clone(),
-                _ => "???".to_string(), // Fallback if iced_x86 fails
+                _ => "???".to_string(),
             };
 
             DisassemblyInfo::new(bytes_str, dis_str, internal_enum, size)
@@ -190,12 +158,6 @@ impl ArchBackend for X86Backend {
         Arc<Mutex<dyn GuiPeripheral>>,
     ) {
         let _ = name;
-        // let dev = Arc::new(Mutex::new(Stm32Gpio::new()));
-        // let gui = Arc::new(Mutex::new(Stm32GpioGui {
-        //     name,
-        //     device: Arc::clone(&dev),
-        // }));
-        // (dev, gui)
         todo!("Not implemented")
     }
 
@@ -259,30 +221,20 @@ impl ArchBackend for X86Backend {
     fn is_instruction(&self, word: &str) -> bool {
         let lower = word.to_lowercase();
         match lower.as_str() {
-            // Base math / logic
-            "add" | "adc" | "sub" | "sbb" | "cmp" | "test" | 
-            "and" | "or" | "xor" | "mul" | "div" | "inc" | "dec" |
-            // Movement / Addresses
-            "mov" | "lea" | "push" | "pop" |
-            // Control Flow & System
-            "jmp" | "call" | "ret" | "hlt" | "nop" | "int" |
-            // Conditional Jumps
-            "jo" | "jno" | "jb" | "jc" | "jnae" | "jae" | "jnb" | "jnc" | 
-            "je" | "jz" | "jne" | "jnz" | "jbe" | "jna" | "ja" | "jnbe" | 
-            "js" | "jns" | "jp" | "jpe" | "jnp" | "jpo" | "jl" | "jnge" | 
-            "jge" | "jnl" | "jle" | "jng" | "jg" | "jnle" |
-            // Conditional Moves (CMOV)
-            "cmovo" | "cmovno" | "cmovb" | "cmovc" | "cmovnae" | "cmovae" | 
-            "cmovnb" | "cmovnc" | "cmove" | "cmovz" | "cmovne" | "cmovnz" | 
-            "cmovbe" | "cmovna" | "cmova" | "cmovnbe" | "cmovs" | "cmovns" | 
-            "cmovp" | "cmovpe" | "cmovnp" | "cmovpo" | "cmovl" | "cmovnge" | 
-            "cmovge" | "cmovnl" | "cmovle" | "cmovng" | "cmovg" | "cmovnle" |
-            // Conditional Sets (SET)
-            "seto" | "setno" | "setb" | "setc" | "setnae" | "setae" | 
-            "setnb" | "setnc" | "sete" | "setz" | "setne" | "setnz" | 
-            "setbe" | "setna" | "seta" | "setnbe" | "sets" | "setns" | 
-            "setp" | "setpe" | "setnp" | "setpo" | "setl" | "setnge" | 
-            "setge" | "setnl" | "setle" | "setng" | "setg" | "setnle" => true,
+            "add" | "adc" | "sub" | "sbb" | "cmp" | "test" | "and" | "or" | "xor" | "mul"
+            | "div" | "inc" | "dec" | "mov" | "lea" | "push" | "pop" | "jmp" | "call" | "ret"
+            | "hlt" | "nop" | "int" | "jo" | "jno" | "jb" | "jc" | "jnae" | "jae" | "jnb"
+            | "jnc" | "je" | "jz" | "jne" | "jnz" | "jbe" | "jna" | "ja" | "jnbe" | "js"
+            | "jns" | "jp" | "jpe" | "jnp" | "jpo" | "jl" | "jnge" | "jge" | "jnl" | "jle"
+            | "jng" | "jg" | "jnle" | "cmovo" | "cmovno" | "cmovb" | "cmovc" | "cmovnae"
+            | "cmovae" | "cmovnb" | "cmovnc" | "cmove" | "cmovz" | "cmovne" | "cmovnz"
+            | "cmovbe" | "cmovna" | "cmova" | "cmovnbe" | "cmovs" | "cmovns" | "cmovp"
+            | "cmovpe" | "cmovnp" | "cmovpo" | "cmovl" | "cmovnge" | "cmovge" | "cmovnl"
+            | "cmovle" | "cmovng" | "cmovg" | "cmovnle" | "seto" | "setno" | "setb" | "setc"
+            | "setnae" | "setae" | "setnb" | "setnc" | "sete" | "setz" | "setne" | "setnz"
+            | "setbe" | "setna" | "seta" | "setnbe" | "sets" | "setns" | "setp" | "setpe"
+            | "setnp" | "setpo" | "setl" | "setnge" | "setge" | "setnl" | "setle" | "setng"
+            | "setg" | "setnle" => true,
             _ => false,
         }
     }
@@ -290,18 +242,12 @@ impl ArchBackend for X86Backend {
     fn is_register(&self, word: &str) -> bool {
         let lower = word.to_lowercase();
         match lower.as_str() {
-            // 64-bit
-            "rax" | "rcx" | "rdx" | "rbx" | "rsp" | "rbp" | "rsi" | "rdi" |
-            "r8"  | "r9"  | "r10" | "r11" | "r12" | "r13" | "r14" | "r15" |
-            // 32-bit
-            "eax" | "ecx" | "edx" | "ebx" | "esp" | "ebp" | "esi" | "edi" |
-            "r8d" | "r9d" | "r10d"| "r11d"| "r12d"| "r13d"| "r14d"| "r15d"|
-            // 16-bit
-            "ax" | "cx" | "dx" | "bx" | "sp" | "bp" | "si" | "di" |
-            // 8-bit
-            "al" | "cl" | "dl" | "bl" | "ah" | "ch" | "dh" | "bh" |
-            // System / Special Status Registers
-            "eip" | "rip" | "eflags" | "rflags" => true,
+            "rax" | "rcx" | "rdx" | "rbx" | "rsp" | "rbp" | "rsi" | "rdi" | "r8" | "r9" | "r10"
+            | "r11" | "r12" | "r13" | "r14" | "r15" | "eax" | "ecx" | "edx" | "ebx" | "esp"
+            | "ebp" | "esi" | "edi" | "r8d" | "r9d" | "r10d" | "r11d" | "r12d" | "r13d"
+            | "r14d" | "r15d" | "ax" | "cx" | "dx" | "bx" | "sp" | "bp" | "si" | "di" | "al"
+            | "cl" | "dl" | "bl" | "ah" | "ch" | "dh" | "bh" | "eip" | "rip" | "eflags"
+            | "rflags" => true,
             _ => false,
         }
     }
