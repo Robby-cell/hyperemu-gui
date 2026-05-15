@@ -17,25 +17,36 @@ pub struct X86Backend;
 const STARTER_CODE: &str = r#".text
 .global _start
 _start:
-    ; UART base address
+    ; UART base address (the console to write to)
     mov ebx, 0x10000000
 
     ; Pointer to string
     mov ebp, message
+    ; The address holding the length of the string
+	mov edx, message_len
+    ; Load the address into the register
+    mov edx, [edx]
 print_loop:
-    mov al, byte ptr [ebp]
-    ; null terminator?
-    test al, al
+    ; Test if the register holding the length is 0
+    test edx, edx
+    ; Exit, if it is zero
     jz finished_printing
 
-    ; write byte to UART DATA register
+    ; Move the byte pointed to by the string into `al` (lower byte of eax)
+    mov al, byte ptr [ebp]
+    ; Increment the string pointer to point to the next character
+	inc ebp
+    ; Decrement the remaining length
+	dec edx
+
+    ; Write byte to UART DATA register
     mov byte ptr [ebx], al
-    add ebp, 1
     jmp print_loop
 
 finished_printing:
     nop
 done:
+    ; Done, loop
     jmp done
 
 message:
