@@ -96,7 +96,6 @@ pub fn compile_and_load(app: &mut EmuApp) {
     app.is_running = false;
     app.error_msg = None;
     app.prev_regs.clear();
-    app.build_pc_map();
 
     let raw = match app.current_backend().assemble(&app.code) {
         Ok(b) => b,
@@ -105,6 +104,9 @@ pub fn compile_and_load(app: &mut EmuApp) {
             return;
         }
     };
+
+    app.pc_to_line = raw.pc_to_line;
+    app.line_to_pc = raw.line_to_pc;
 
     let emu_arch = app.current_backend().arch();
     let emu_mode = app.current_backend().default_mode();
@@ -148,7 +150,7 @@ pub fn compile_and_load(app: &mut EmuApp) {
         }
     }
 
-    if let Err(e) = emu.load_raw(&raw, 0) {
+    if let Err(e) = emu.load_raw(&raw.bytes, 0) {
         app.error_msg = Some(format!("Loader Error: {:?}", e));
         return;
     }
@@ -668,7 +670,9 @@ pub fn render_cpu(ui: &mut egui::Ui, app: &mut EmuApp) {
 pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
     ui.heading("Live Stack (Top 16)");
 
-    let sp_reg = app.current_backend().sp_reg();
+    let backend = app.current_backend();
+    let sp_reg = backend.sp_reg();
+    let word_size = backend.word_size() as u64;
 
     if let Some(emu) = &mut app.emu {
         let sp = emu.reg_read(sp_reg).unwrap_or(0);
@@ -684,7 +688,7 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
                 ui.end_row();
 
                 for i in 0..16 {
-                    let addr = sp + (i * 4) as u64;
+                    let addr = sp.wrapping_add(i * word_size); // Dynamic Architecture Word-Size
 
                     // Address Column
                     ui.label(

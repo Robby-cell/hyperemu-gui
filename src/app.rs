@@ -1,3 +1,4 @@
+use crate::backend::x86::X86Backend;
 use crate::backend::{ArchBackend, armv7::Armv7Backend};
 use crate::ui::peripherals::GuiPeripheral;
 use eframe::egui;
@@ -144,7 +145,8 @@ pub struct EmuApp {
 
 impl Default for EmuApp {
     fn default() -> Self {
-        let backends: Vec<Arc<dyn ArchBackend>> = vec![Arc::new(Armv7Backend)];
+        let backends: Vec<Arc<dyn ArchBackend>> =
+            vec![Arc::new(Armv7Backend), Arc::new(X86Backend)];
         let code = backends[0].default_code().to_string();
 
         Self {
@@ -377,32 +379,31 @@ impl EmuApp {
     }
 
     pub fn snapshot_registers(&mut self) {
-        let sp_reg = self.current_backend().sp_reg();
+        let backend = self.current_backend();
+        let sp_reg = backend.sp_reg();
+        let num_regs = backend.num_registers();
+        let word_size = backend.word_size() as u64;
 
         if let Some(emu) = &mut self.emu {
-            // 1. Snapshot CPU Registers
-            for i in 0..32 {
+            // 1. Snapshot exact CPU Registers dynamically
+            for i in 0..num_regs {
                 if let Ok(val) = emu.reg_read(i) {
                     self.prev_regs.insert(i, val);
                 }
             }
 
-            // 2. Snapshot the Stack (Top 16 Words)
+            // 2. Snapshot the Stack (Top 16 Words) dynamically based on Word Size
             let sp = emu.reg_read(sp_reg).unwrap_or(0);
             self.prev_stack.clear();
 
             for i in 0..16 {
-                let addr = sp + (i * 4) as u64; // ARM words are 4 bytes
+                let addr = sp.wrapping_add(i * word_size);
+
+                // Read 32-bit data (If we add a 64-bit Arch later, we can branch to bus.read_64 here)
                 if let Ok(val) = emu.bus.read_32(addr) {
                     self.prev_stack.insert(addr, val);
                 }
             }
         }
-    }
-
-    pub fn build_pc_map(&mut self) {
-        let (pc_to_line, line_to_pc) = self.current_backend().build_pc_map(&self.code);
-        self.pc_to_line = pc_to_line;
-        self.line_to_pc = line_to_pc;
     }
 }
