@@ -708,7 +708,8 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
 
     if let Some(emu) = &mut app.emu {
         let sp = emu.reg_read(sp_reg).unwrap_or(0);
-        let col_width = (ui.available_width() - 60.0) / 4.0;
+        // 4 Columns = 3 gaps * 15.0px = 45.0px + 10px buffer = 55.0px
+        let col_width = (ui.available_width() - 55.0) / 4.0;
 
         egui::Grid::new("stack_grid")
             .num_columns(4) // 1. Add 4th column

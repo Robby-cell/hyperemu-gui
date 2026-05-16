@@ -219,12 +219,14 @@ impl ArchBackend for Armv7Backend {
         prev_regs: &HashMap<usize, u64>,
         labels: &HashMap<u64, String>,
     ) {
-        let col_width = (ui.available_width() - 30.0) / 3.0;
+        let gap = ui.spacing().item_spacing.x;
+        // 3 Columns = 2 gaps + 10px buffer
+        let reg_col_width = (ui.available_width() - (gap * 2.0) - 10.0) / 3.0;
 
-        egui::Grid::new("reg_grid")
+        egui::Grid::new("armv7_reg_grid")
             .num_columns(3) // 3 Columns
             .striped(true)
-            .min_col_width(col_width)
+            .min_col_width(reg_col_width)
             .show(ui, |ui| {
                 for r in 0..16 {
                     let val = emu.reg_read(r).unwrap_or(0);
@@ -280,10 +282,13 @@ impl ArchBackend for Armv7Backend {
         let t = (cpsr >> 5) & 1;
         let e = (cpsr >> 9) & 1;
 
-        egui::Grid::new("cpsr_grid")
+        // 2 Columns = 1 gap + 10px buffer
+        let cpsr_col_width = (ui.available_width() - gap - 10.0) / 2.0;
+
+        egui::Grid::new("armv7_cpsr_grid")
             .num_columns(2)
             .striped(true)
-            .min_col_width(col_width)
+            .min_col_width(cpsr_col_width)
             .show(ui, |ui| {
                 let red = egui::Color32::RED;
                 let gray = egui::Color32::DARK_GRAY;

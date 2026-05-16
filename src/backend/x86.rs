@@ -179,12 +179,14 @@ impl ArchBackend for X86Backend {
         prev_regs: &HashMap<usize, u64>,
         labels: &HashMap<u64, String>,
     ) {
-        let col_width = (ui.available_width() - 30.0) / 3.0;
+        let gap = ui.spacing().item_spacing.x;
+        // 3 Columns = 2 gaps + 10px buffer
+        let reg_col_width = (ui.available_width() - (gap * 2.0) - 10.0) / 3.0;
 
         egui::Grid::new("x86_reg_grid")
             .num_columns(3) // 3 Columns
             .striped(true)
-            .min_col_width(col_width)
+            .min_col_width(reg_col_width)
             .show(ui, |ui| {
                 let names = [
                     "EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "ESI", "EDI", "EIP", "EFLAGS",
@@ -224,6 +226,9 @@ impl ArchBackend for X86Backend {
         ui.separator();
         ui.heading("EFLAGS");
 
+        // 2 Columns = 1 gap + 10px buffer
+        let eflags_col_width = (ui.available_width() - gap - 10.0) / 2.0;
+
         let eflags = emu.reg_read(9).unwrap_or(0);
         let flags = [
             ("CF (Carry)", 0),
@@ -237,7 +242,7 @@ impl ArchBackend for X86Backend {
         egui::Grid::new("x86_eflags_grid")
             .num_columns(2)
             .striped(true)
-            .min_col_width(col_width)
+            .min_col_width(eflags_col_width)
             .show(ui, |ui| {
                 for (name, bit) in flags {
                     let val = (eflags >> bit) & 1;
