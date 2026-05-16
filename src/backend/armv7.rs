@@ -295,21 +295,21 @@ impl ArchBackend for Armv7Backend {
 
     fn is_instruction(&self, word: &str) -> bool {
         let lower = word.to_lowercase();
-        [
-            "add", "sub", "mov", "ldr", "str", "b", "beq", "bne", "cmp", "subs", "ldrb", "strb",
-            "lsl", "lsr", "asr", "and", "orr", "eor", "push", "pop", "svc", "bl", "bx", "blx",
-            "mul", "mla", "nop", "bkpt",
-        ]
-        .contains(&lower.as_str())
+        match lower.as_str() {
+            "add" | "sub" | "mov" | "ldr" | "str" | "b" | "beq" | "bne" | "cmp" | "subs"
+            | "ldrb" | "strb" | "lsl" | "lsr" | "asr" | "and" | "orr" | "eor" | "push" | "pop"
+            | "svc" | "bl" | "bx" | "blx" | "mul" | "mla" | "nop" | "bkpt" => true,
+            _ => false,
+        }
     }
 
     fn is_register(&self, word: &str) -> bool {
         let lower = word.to_lowercase();
-        [
-            "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13",
-            "sp", "r14", "lr", "r15", "pc",
-        ]
-        .contains(&lower.as_str())
+        match lower.as_str() {
+            "r0" | "r1" | "r2" | "r3" | "r4" | "r5" | "r6" | "r7" | "r8" | "r9" | "r10" | "r11"
+            | "r12" | "r13" | "sp" | "r14" | "lr" | "r15" | "pc" => true,
+            _ => false,
+        }
     }
 }
 
