@@ -708,60 +708,62 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
 
     if let Some(emu) = &mut app.emu {
         let sp = emu.reg_read(sp_reg).unwrap_or(0);
+        let col_width = (ui.available_width() - 60.0) / 4.0;
 
         egui::Grid::new("stack_grid")
-            .num_columns(3) // Address | Value | Indicator
+            .num_columns(4) // 1. Add 4th column
             .striped(true)
+            .min_col_width(col_width)
             .spacing([15.0, 4.0])
             .show(ui, |ui| {
                 ui.label(egui::RichText::new("Address").strong());
                 ui.label(egui::RichText::new("Value").strong());
-                ui.label(""); // Empty header for the arrow indicator
+                ui.label(egui::RichText::new("Label").strong()); // New Header
+                ui.label("");
                 ui.end_row();
 
                 for i in 0..16 {
-                    let addr = sp.wrapping_add(i * word_size); // Dynamic Architecture Word-Size
+                    let addr = sp.wrapping_add(i * word_size);
 
-                    // Address Column
+                    // 1. Address Column
                     ui.label(
                         egui::RichText::new(format!("0x{:08X}", addr))
                             .monospace()
                             .color(egui::Color32::DARK_GRAY),
                     );
 
-                    // Value Column
+                    // 2 & 3. Value & Label Columns
                     match emu.bus.read_32(addr) {
                         Ok(val) => {
                             let prev = app.prev_stack.get(&addr).copied().unwrap_or(val);
                             let color = if val != prev {
-                                egui::Color32::YELLOW // Highlight changes!
+                                egui::Color32::YELLOW
                             } else {
                                 ui.visuals().text_color()
                             };
 
-                            let mut val_str = format!("0x{:08X}", val);
-                            if let Some(lbl) = app.labels.get(&(val as u64)) {
-                                val_str.push_str(&format!(" <{}>", lbl));
-                            }
-
-                            let resp = ui.add(
-                                egui::Label::new(
-                                    egui::RichText::new(&val_str).monospace().color(color),
-                                )
-                                .truncate(),
+                            ui.colored_label(
+                                color,
+                                egui::RichText::new(format!("0x{:08X}", val)).monospace(),
                             );
 
-                            // Show full name if it's truncated
-                            if app.labels.contains_key(&(val as u64)) {
-                                resp.on_hover_text(val_str);
+                            // Put label in its own column!
+                            if let Some(lbl) = app.labels.get(&(val as u64)) {
+                                ui.label(
+                                    egui::RichText::new(format!("<{}>", lbl))
+                                        .color(egui::Color32::from_rgb(220, 220, 170)),
+                                );
+                            } else {
+                                ui.allocate_space(egui::Vec2::ZERO);
                             }
                         }
                         Err(_) => {
                             ui.label(egui::RichText::new("Unmapped").color(egui::Color32::RED));
+                            ui.allocate_space(egui::Vec2::ZERO);
                         }
                     }
 
-                    // Indicator Column
+                    // 4. Indicator Column
                     if i == 0 {
                         ui.label(
                             egui::RichText::new("← SP")
@@ -769,7 +771,7 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
                                 .strong(),
                         );
                     } else {
-                        ui.label("");
+                        ui.allocate_space(egui::Vec2::ZERO);
                     }
 
                     ui.end_row();

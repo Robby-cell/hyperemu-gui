@@ -219,10 +219,10 @@ impl ArchBackend for Armv7Backend {
         prev_regs: &HashMap<usize, u64>,
         labels: &HashMap<u64, String>,
     ) {
-        let col_width = (ui.available_width() - 10.0) / 2.0;
+        let col_width = (ui.available_width() - 30.0) / 3.0;
 
         egui::Grid::new("reg_grid")
-            .num_columns(2)
+            .num_columns(3) // 3 Columns
             .striped(true)
             .min_col_width(col_width)
             .show(ui, |ui| {
@@ -235,30 +235,33 @@ impl ArchBackend for Armv7Backend {
                         ui.visuals().text_color()
                     };
 
+                    // 1. Name Column
                     let name = match r {
-                        13 => "SP",
-                        14 => "LR",
-                        15 => "PC",
-                        _ => "",
+                        13 => Some("SP"),
+                        14 => Some("LR"),
+                        15 => Some("PC"),
+                        _ => None,
                     };
-                    if name.is_empty() {
-                        ui.label(format!("R{}", r));
-                    } else {
+                    if let Some(name) = name {
                         ui.label(name);
+                    } else {
+                        ui.label(format!("R{}", r));
                     }
 
-                    let mut val_str = format!("0x{:08X}", val);
-                    if let Some(lbl) = labels.get(&val) {
-                        val_str.push_str(&format!(" <{}>", lbl));
-                    }
-
-                    let resp = ui.add(
-                        egui::Label::new(egui::RichText::new(&val_str).monospace().color(color))
-                            .truncate(),
+                    // 2. Value Column
+                    ui.colored_label(
+                        color,
+                        egui::RichText::new(format!("0x{:08X}", val)).monospace(),
                     );
 
-                    if labels.contains_key(&val) {
-                        resp.on_hover_text(val_str);
+                    // 3. Label Column
+                    if let Some(lbl) = labels.get(&val) {
+                        ui.label(
+                            egui::RichText::new(format!("<{}>", lbl))
+                                .color(egui::Color32::from_rgb(220, 220, 170)),
+                        );
+                    } else {
+                        ui.allocate_space(egui::Vec2::ZERO);
                     }
 
                     ui.end_row();
