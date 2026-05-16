@@ -23,9 +23,8 @@ _start:
     ; Pointer to string
     mov ebp, message
     ; The address holding the length of the string
-	mov edx, message_len
-    ; Load the address into the register
-    mov edx, [edx]
+    ; Load the length into the register
+	mov edx, [message_len]
 print_loop:
     ; Test if the register holding the length is 0
     test edx, edx
