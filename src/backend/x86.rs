@@ -172,10 +172,19 @@ impl ArchBackend for X86Backend {
         todo!("Not implemented")
     }
 
-    fn render_registers(&self, ui: &mut egui::Ui, emu: &HyperEmu, prev_regs: &HashMap<usize, u64>) {
+    fn render_registers(
+        &self,
+        ui: &mut egui::Ui,
+        emu: &HyperEmu,
+        prev_regs: &HashMap<usize, u64>,
+        labels: &HashMap<u64, String>,
+    ) {
+        let col_width = (ui.available_width() - 10.0) / 2.0;
+
         egui::Grid::new("x86_reg_grid")
             .num_columns(2)
             .striped(true)
+            .min_col_width(col_width)
             .show(ui, |ui| {
                 let names = [
                     "EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "ESI", "EDI", "EIP", "EFLAGS",
@@ -190,10 +199,21 @@ impl ArchBackend for X86Backend {
                     };
 
                     ui.label(*name);
-                    ui.colored_label(
-                        color,
-                        egui::RichText::new(format!("0x{:08X}", val)).monospace(),
+
+                    let mut val_str = format!("0x{:08X}", val);
+                    if let Some(lbl) = labels.get(&val) {
+                        val_str.push_str(&format!(" <{}>", lbl));
+                    }
+
+                    let resp = ui.add(
+                        egui::Label::new(egui::RichText::new(&val_str).monospace().color(color))
+                            .truncate(),
                     );
+
+                    if labels.contains_key(&val) {
+                        resp.on_hover_text(val_str);
+                    }
+
                     ui.end_row();
                 }
             });
@@ -214,6 +234,7 @@ impl ArchBackend for X86Backend {
         egui::Grid::new("x86_eflags_grid")
             .num_columns(2)
             .striped(true)
+            .min_col_width(col_width)
             .show(ui, |ui| {
                 for (name, bit) in flags {
                     let val = (eflags >> bit) & 1;

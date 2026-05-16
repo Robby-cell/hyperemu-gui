@@ -108,6 +108,11 @@ pub fn compile_and_load(app: &mut EmuApp) {
     app.pc_to_line = raw.pc_to_line;
     app.line_to_pc = raw.line_to_pc;
 
+    app.labels.clear();
+    for (name, addr) in raw.labels {
+        app.labels.insert(addr, name);
+    }
+
     let emu_arch = app.current_backend().arch();
     let emu_mode = app.current_backend().default_mode();
 
@@ -408,6 +413,33 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                         let mut current_addr = start_addr;
 
                         for _ in 0..64 {
+                            // Label
+                            if let Some(label_name) = app.labels.get(&current_addr) {
+                                let label_frame =
+                                    egui::Frame::NONE.inner_margin(egui::vec2(10.0, 4.0));
+
+                                label_frame.show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                }); // Col 1 (Empty)
+                                label_frame.show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                }); // Col 2 (Empty)
+                                label_frame.show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                    ui.label(
+                                        egui::RichText::new(format!("<{}>:", label_name))
+                                            .monospace()
+                                            .strong()
+                                            .color(egui::Color32::from_rgb(220, 220, 170)), // Function yellow/tan
+                                    );
+                                });
+                                label_frame.show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                }); // Col 4 (Empty)
+                                ui.end_row();
+                            }
+                            // End Label
+
                             let is_pc = current_addr == pc;
 
                             let bg = if is_pc {
@@ -661,7 +693,7 @@ pub fn render_cpu(ui: &mut egui::Ui, app: &mut EmuApp) {
     ui.heading("Registers");
     if let Some(emu) = &app.emu {
         app.current_backend()
-            .render_registers(ui, emu, &app.prev_regs);
+            .render_registers(ui, emu, &app.prev_regs, &app.labels);
     } else {
         ui.label("Emulator not loaded.");
     }
@@ -707,10 +739,22 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
                                 ui.visuals().text_color()
                             };
 
-                            ui.colored_label(
-                                color,
-                                egui::RichText::new(format!("0x{:08X}", val)).monospace(),
+                            let mut val_str = format!("0x{:08X}", val);
+                            if let Some(lbl) = app.labels.get(&(val as u64)) {
+                                val_str.push_str(&format!(" <{}>", lbl));
+                            }
+
+                            let resp = ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(&val_str).monospace().color(color),
+                                )
+                                .truncate(),
                             );
+
+                            // Show full name if it's truncated
+                            if app.labels.contains_key(&(val as u64)) {
+                                resp.on_hover_text(val_str);
+                            }
                         }
                         Err(_) => {
                             ui.label(egui::RichText::new("Unmapped").color(egui::Color32::RED));

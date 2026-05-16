@@ -76,7 +76,13 @@ pub trait ArchBackend {
     /// Returns (Hex Bytes String, Disassembly String, Internal Enum String, Instruction Byte Size)
     fn disassemble(&self, addr: u64, emu: &mut HyperEmu) -> DisassemblyInfo;
 
-    fn render_registers(&self, ui: &mut egui::Ui, emu: &HyperEmu, prev_regs: &HashMap<usize, u64>);
+    fn render_registers(
+        &self,
+        ui: &mut egui::Ui,
+        emu: &HyperEmu,
+        prev_regs: &HashMap<usize, u64>,
+        labels: &HashMap<u64, String>,
+    );
 
     /// Returns the CPU's memory bus peripheral mapped simultaneously as an emulator device and a renderable GUI component
     fn create_gpio(

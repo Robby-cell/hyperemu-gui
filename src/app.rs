@@ -160,6 +160,8 @@ pub struct EmuApp {
     pub prev_stack: HashMap<u64, u32>,
     pub pc_to_line: HashMap<u64, usize>,
     pub line_to_pc: HashMap<usize, u64>,
+    pub labels: HashMap<u64, String>,
+
     pub breakpoints: Arc<Mutex<HashSet<u64>>>,
     pub breakpoint_input: String,
     pub ignore_next_bp: Arc<Mutex<Option<u64>>>,
@@ -197,10 +199,13 @@ impl Default for EmuApp {
             left_tab: LeftTab::Hardware,
             central_tab: CentralTab::Editor,
             mobile_tab: MobileTab::Editor,
+
             prev_regs: HashMap::new(),
             prev_stack: HashMap::new(),
             pc_to_line: HashMap::new(),
             line_to_pc: HashMap::new(),
+            labels: HashMap::new(),
+
             breakpoints: Arc::new(Mutex::new(HashSet::new())),
             breakpoint_input: String::new(),
             ignore_next_bp: Arc::new(Mutex::new(None)),
@@ -280,6 +285,7 @@ impl EmuApp {
         self.prev_stack.clear();
         self.pc_to_line.clear();
         self.line_to_pc.clear();
+        self.labels.clear();
         self.breakpoints.lock().unwrap().clear();
     }
 
@@ -314,6 +320,7 @@ impl EmuApp {
         self.gui_peripherals.clear();
         self.error_msg = None;
         self.is_running = false;
+        self.labels.clear();
     }
 }
 

@@ -212,10 +212,19 @@ impl ArchBackend for Armv7Backend {
         (dev, gui)
     }
 
-    fn render_registers(&self, ui: &mut egui::Ui, emu: &HyperEmu, prev_regs: &HashMap<usize, u64>) {
+    fn render_registers(
+        &self,
+        ui: &mut egui::Ui,
+        emu: &HyperEmu,
+        prev_regs: &HashMap<usize, u64>,
+        labels: &HashMap<u64, String>,
+    ) {
+        let col_width = (ui.available_width() - 10.0) / 2.0;
+
         egui::Grid::new("reg_grid")
             .num_columns(2)
             .striped(true)
+            .min_col_width(col_width)
             .show(ui, |ui| {
                 for r in 0..16 {
                     let val = emu.reg_read(r).unwrap_or(0);
@@ -237,10 +246,21 @@ impl ArchBackend for Armv7Backend {
                     } else {
                         ui.label(name);
                     }
-                    ui.colored_label(
-                        color,
-                        egui::RichText::new(format!("0x{:08X}", val)).monospace(),
+
+                    let mut val_str = format!("0x{:08X}", val);
+                    if let Some(lbl) = labels.get(&val) {
+                        val_str.push_str(&format!(" <{}>", lbl));
+                    }
+
+                    let resp = ui.add(
+                        egui::Label::new(egui::RichText::new(&val_str).monospace().color(color))
+                            .truncate(),
                     );
+
+                    if labels.contains_key(&val) {
+                        resp.on_hover_text(val_str);
+                    }
+
                     ui.end_row();
                 }
             });
@@ -260,6 +280,7 @@ impl ArchBackend for Armv7Backend {
         egui::Grid::new("cpsr_grid")
             .num_columns(2)
             .striped(true)
+            .min_col_width(col_width)
             .show(ui, |ui| {
                 let red = egui::Color32::RED;
                 let gray = egui::Color32::DARK_GRAY;
