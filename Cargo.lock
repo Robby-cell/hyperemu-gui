@@ -937,26 +937,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "emu-gui"
-version = "0.1.0"
-dependencies = [
- "armv7-disassembler",
- "armv7-encoder",
- "console_error_panic_hook",
- "eframe",
- "egui",
- "hyperemu",
- "log",
- "rfd",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "x86-translator",
-]
-
-[[package]]
 name = "endi"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1509,6 +1489,26 @@ dependencies = [
  "goblin",
  "log",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "hyperemu-gui"
+version = "0.1.0"
+dependencies = [
+ "armv7-disassembler",
+ "armv7-encoder",
+ "console_error_panic_hook",
+ "eframe",
+ "egui",
+ "hyperemu",
+ "log",
+ "rfd",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "x86-translator",
 ]
 
 [[package]]
