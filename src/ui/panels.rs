@@ -750,10 +750,15 @@ pub fn render_stack(ui: &mut egui::Ui, app: &mut EmuApp) {
 
                             // Put label in its own column!
                             if let Some(lbl) = app.labels.get(&(val as u64)) {
-                                ui.label(
-                                    egui::RichText::new(format!("<{}>", lbl))
-                                        .color(egui::Color32::from_rgb(220, 220, 170)),
+                                let text = format!("<{}>", lbl);
+                                let resp = ui.add(
+                                    egui::Label::new(
+                                        egui::RichText::new(&text)
+                                            .color(egui::Color32::from_rgb(220, 220, 170)),
+                                    )
+                                    .truncate(), // Crucial: Allows the column to shrink!
                                 );
+                                resp.on_hover_text(text);
                             } else {
                                 ui.allocate_space(egui::Vec2::ZERO);
                             }

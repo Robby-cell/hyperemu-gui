@@ -180,8 +180,8 @@ impl ArchBackend for X86Backend {
         labels: &HashMap<u64, String>,
     ) {
         let gap = ui.spacing().item_spacing.x;
-        // 3 Columns = 2 gaps + 10px buffer
-        let reg_col_width = (ui.available_width() - (gap * 2.0) - 10.0) / 3.0;
+        // 3 Columns = 2 gaps + 20px buffer
+        let reg_col_width = (ui.available_width() - (gap * 2.0) - 20.0) / 3.0;
 
         egui::Grid::new("x86_reg_grid")
             .num_columns(3) // 3 Columns
@@ -211,10 +211,15 @@ impl ArchBackend for X86Backend {
 
                     // 3. Label Column
                     if let Some(lbl) = labels.get(&val) {
-                        ui.label(
-                            egui::RichText::new(format!("<{}>", lbl))
-                                .color(egui::Color32::from_rgb(220, 220, 170)),
+                        let text = format!("<{}>", lbl);
+                        let resp = ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(&text)
+                                    .color(egui::Color32::from_rgb(220, 220, 170)),
+                            )
+                            .truncate(),
                         );
+                        resp.on_hover_text(text);
                     } else {
                         ui.allocate_space(egui::Vec2::ZERO);
                     }
@@ -227,7 +232,7 @@ impl ArchBackend for X86Backend {
         ui.heading("EFLAGS");
 
         // 2 Columns = 1 gap + 10px buffer
-        let eflags_col_width = (ui.available_width() - gap - 10.0) / 2.0;
+        let eflags_col_width = (ui.available_width() - gap - 20.0) / 2.0;
 
         let eflags = emu.reg_read(9).unwrap_or(0);
         let flags = [

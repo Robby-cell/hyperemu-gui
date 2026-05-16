@@ -214,10 +214,12 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
         });
     } else {
         // DESKTOP LAYOUT (Three Panels)
+        let max_panel_width = ui.ctx().content_rect().width() * 0.35;
 
         // LEFT PANEL (Hardware, Consoles, Memory Map)
         egui::Panel::left("left_panel")
-            .min_size(320.0)
+            .min_size(250.0)
+            .max_size(max_panel_width)
             .resizable(true)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -237,6 +239,7 @@ pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
         // RIGHT PANEL (CPU Registers pinned for debugging)
         egui::Panel::right("right_panel")
             .min_size(250.0)
+            .max_size(max_panel_width)
             .resizable(true)
             .show_inside(ui, |ui| {
                 egui::ScrollArea::vertical()
