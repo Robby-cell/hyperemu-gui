@@ -7,7 +7,7 @@ edition = "2024"
 hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", tag = "0.1.2" }
 armv7-encoder = { git = "https://github.com/Robby-cell/armv7-encoder.git", tag = "0.3.7" }
 armv7-disassembler = { git = "https://github.com/Robby-cell/armv7-disassembler.git", tag = "0.3.2" }
-x86-translator = { git = "https://github.com/Robby-cell/x86-translator.git", tag = "0.1.6" }
+x86-translator = { git = "https://github.com/Robby-cell/x86-translator.git", tag = "0.1.7" }
 
 # For local development to get the most up to date changes.
 # hyperemu = { path = "../hyperemu" }

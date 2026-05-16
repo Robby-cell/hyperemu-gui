@@ -100,7 +100,6 @@ impl ArchBackend for X86Backend {
 
     fn assemble(&self, code: &str) -> Result<AssembleResult, String> {
         // We pass the entire code block to the assembler exactly once.
-        // Removed: The PC mapping feature that tried to loop line-by-line and parse lengths.
         let res = Assembler::new()
             .bitness(32)
             .assemble(code)

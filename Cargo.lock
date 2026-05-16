@@ -4374,8 +4374,8 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "x86-translator"
-version = "0.1.6"
-source = "git+https://github.com/Robby-cell/x86-translator.git?tag=0.1.6#a76edfe40c54110d1757c917fedcb7b165c30ea5"
+version = "0.1.7"
+source = "git+https://github.com/Robby-cell/x86-translator.git?tag=0.1.7#38ff3e104d528cd06c9693e37b36c73ac7b418df"
 dependencies = [
  "iced-x86",
  "nom",
