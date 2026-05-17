@@ -20,7 +20,7 @@ _start:
     mov ebp, message
     ; The address holding the length of the string
     ; Load the length into the register
-	mov edx, [message_len]
+	mov edx, dword ptr [message_len]
 print_loop:
     ; Test if the register holding the length is 0
     test edx, edx
@@ -44,14 +44,19 @@ finished_printing:
 
 loop:
     ; Read the BUTTONS register (Offset 0x04)
-    mov eax, [ebx + 4]
+    mov eax, dword ptr [ebx + 4]
     
     ; Mask out everything except bit 0 (our Checkbox)
-    and eax, 1
+    and al, 1
     
     ; Is the button pressed?
-    cmp eax, 1
-    je turn_led_on
+    ; Since we mask everything out except 1 (eax can only be 1 or 0)
+    ; The only '1' we can have is the lower byte
+    ; (which is al. al, ah are the low and high bytes of ax, which is the lower two bytes of eax)
+    test al, al
+    ; If zero flag is not set, jump to turn_led_on,
+    ; i.e. jump to turn_led_on if it is not zero.
+    jne turn_led_on
 
 turn_led_off:
     ; Write 0 to the LEDS register (Offset 0x00)
