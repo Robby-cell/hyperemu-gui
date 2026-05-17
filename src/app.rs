@@ -92,6 +92,12 @@ impl Default for BackendWorkspace {
                     size: 0x1000,
                     dev_type: DeviceType::Uart,
                 },
+                MemMapRecord {
+                    name: "User LED".into(),
+                    start: 0x40000000,
+                    size: 0x1000,
+                    dev_type: DeviceType::Gpio,
+                },
             ],
             clock_speed: ClockSpeed::new_khz(10),
         }

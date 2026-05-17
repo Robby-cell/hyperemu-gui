@@ -1,11 +1,7 @@
 use super::{ArchBackend, AssembleResult, DisassemblyInfo};
 use crate::ui::peripherals::GuiPeripheral;
 use eframe::egui;
-use hyperemu::{
-    Arch, CpuMode, HyperEmu,
-    arch::x86::decode::X86Decoder,
-    device::{self},
-};
+use hyperemu::{Arch, CpuMode, HyperEmu, arch::x86::decode::X86Decoder, device::Device};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -43,7 +39,30 @@ print_loop:
     jmp print_loop
 
 finished_printing:
-    nop
+    ; GPIO Base Address
+    mov ebx, 0x40000000
+
+loop:
+    ; Read the BUTTONS register (Offset 0x04)
+    mov eax, [ebx + 4]
+    
+    ; Mask out everything except bit 0 (our Checkbox)
+    and eax, 1
+    
+    ; Is the button pressed?
+    cmp eax, 1
+    je turn_led_on
+
+turn_led_off:
+    ; Write 0 to the LEDS register (Offset 0x00)
+    mov dword ptr [ebx], 0
+    jmp loop
+
+turn_led_on:
+    ; Write 1 to the LEDS register (Offset 0x00)
+    mov dword ptr [ebx], 1
+    jmp loop
+
 done:
     ; Done, loop
     jmp done
@@ -164,12 +183,13 @@ impl ArchBackend for X86Backend {
     fn create_gpio(
         &self,
         name: String,
-    ) -> (
-        Arc<Mutex<dyn device::Device + Send>>,
-        Arc<Mutex<dyn GuiPeripheral>>,
-    ) {
-        let _ = name;
-        todo!("Not implemented")
+    ) -> (Arc<Mutex<dyn Device + Send>>, Arc<Mutex<dyn GuiPeripheral>>) {
+        let dev = Arc::new(Mutex::new(device::X86Gpio::new()));
+        let gui = Arc::new(Mutex::new(X86GpioGui {
+            name,
+            device: Arc::clone(&dev),
+        }));
+        (dev, gui)
     }
 
     fn render_registers(
@@ -295,5 +315,164 @@ impl ArchBackend for X86Backend {
             | "rflags" => true,
             _ => false,
         }
+    }
+}
+
+pub mod device {
+    use hyperemu::{EmuError, device::Device};
+
+    pub struct X86Gpio {
+        pub leds: u32,    // Offset 0x00 (Output)
+        pub buttons: u32, // Offset 0x04 (Input)
+    }
+
+    impl X86Gpio {
+        pub const fn new() -> Self {
+            Self {
+                leds: 0,
+                buttons: 0,
+            }
+        }
+
+        pub const fn set_button(&mut self, pin: u8, pressed: bool) {
+            if pressed {
+                self.buttons |= 1 << pin;
+            } else {
+                self.buttons &= !(1 << pin);
+            }
+        }
+
+        pub const fn is_led_on(&self, pin: u8) -> bool {
+            (self.leds & (1 << pin)) != 0
+        }
+    }
+
+    impl Device for X86Gpio {
+        #[inline(always)]
+        fn read_32(&mut self, offset: u64) -> Result<u32, EmuError> {
+            match offset {
+                0x00 => Ok(self.leds),
+                0x04 => Ok(self.buttons),
+                _ => Ok(0),
+            }
+        }
+
+        #[inline(always)]
+        fn write_32(&mut self, offset: u64, val: u32) -> Result<(), EmuError> {
+            match offset {
+                0x00 => self.leds = val,
+                // Offset 0x04 is Input-Only, so we ignore CPU writes to it!
+                _ => {}
+            }
+            Ok(())
+        }
+
+        // Fallbacks to handle partial 16-bit and 8-bit reads/writes from the CPU
+        #[inline(always)]
+        fn read_16(&mut self, offset: u64) -> Result<u16, EmuError> {
+            let val = self.read_32(offset & !3)?;
+            Ok((val >> ((offset % 4) * 8)) as u16)
+        }
+
+        #[inline(always)]
+        fn write_16(&mut self, offset: u64, val: u16) -> Result<(), EmuError> {
+            let base = offset & !3;
+            let shift = (offset % 4) * 8;
+            let mask = !(0xFFFFu32 << shift);
+            let current = self.read_32(base)?;
+            self.write_32(base, (current & mask) | ((val as u32) << shift))
+        }
+
+        #[inline(always)]
+        fn read_8(&mut self, offset: u64) -> Result<u8, EmuError> {
+            let val = self.read_32(offset & !3)?;
+            Ok((val >> ((offset % 4) * 8)) as u8)
+        }
+
+        #[inline(always)]
+        fn write_8(&mut self, offset: u64, val: u8) -> Result<(), EmuError> {
+            let base = offset & !3;
+            let shift = (offset % 4) * 8;
+            let mask = !(0xFFu32 << shift);
+            let current = self.read_32(base)?;
+            self.write_32(base, (current & mask) | ((val as u32) << shift))
+        }
+    }
+}
+
+pub struct X86GpioGui {
+    pub name: String,
+    pub device: Arc<Mutex<device::X86Gpio>>,
+}
+
+impl GuiPeripheral for X86GpioGui {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn category(&self) -> crate::ui::peripherals::PeripheralCategory {
+        crate::ui::peripherals::PeripheralCategory::Hardware
+    }
+
+    fn render(&mut self, ui: &mut egui::Ui) {
+        ui.group(|ui| {
+            ui.vertical(|ui| {
+                ui.label(egui::RichText::new(&self.name).strong());
+
+                let mut dev = self.device.lock().unwrap();
+
+                ui.horizontal(|ui| {
+                    // Checkbox interacting with Offset 0x04
+                    let mut is_pressed = (dev.buttons & 1) != 0;
+                    if ui
+                        .checkbox(&mut is_pressed, "Toggle Pin 0 (Input)")
+                        .changed()
+                    {
+                        dev.set_button(0, is_pressed);
+                    }
+
+                    ui.add_space(20.0);
+
+                    // LED interacting with Offset 0x00
+                    let is_on = dev.is_led_on(0);
+                    let color = if is_on {
+                        egui::Color32::from_rgb(50, 255, 50)
+                    } else {
+                        egui::Color32::from_rgb(40, 40, 40)
+                    };
+
+                    ui.label("LED:");
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::hover());
+                    ui.painter().circle_filled(rect.center(), 8.0, color);
+                    ui.painter().circle_stroke(
+                        rect.center(),
+                        8.0,
+                        egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
+                    );
+                });
+
+                ui.separator();
+
+                // Live Memory Diagnostics
+                ui.label(
+                    egui::RichText::new("Hardware Register Debug:")
+                        .small()
+                        .color(egui::Color32::DARK_GRAY),
+                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(format!("LEDS (0x00):    0x{:08X}", dev.leds))
+                            .monospace()
+                            .small(),
+                    );
+                    ui.label(
+                        egui::RichText::new(format!("BUTTONS (0x04): 0x{:08X}", dev.buttons))
+                            .monospace()
+                            .small(),
+                    );
+                });
+            });
+        });
     }
 }
