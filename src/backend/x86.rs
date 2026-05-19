@@ -128,8 +128,6 @@ impl ArchBackend for X86Backend {
             .assemble(code)
             .map_err(|e| format!("{}", e))?; // Changed from {:?} to {} to render the Display message cleanly
 
-        println!("{:?} | {:?}", res.line_to_ip, res.ip_to_line);
-
         Ok(AssembleResult {
             bytes: res.bytes,
             entry_point: res.entry_point,
