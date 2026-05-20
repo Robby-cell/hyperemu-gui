@@ -153,10 +153,10 @@ impl ArchBackend for X86Backend {
             let mut emu_decoder = X86Decoder::new(&bytes);
             let internal_ast = emu_decoder.decode_instr();
 
-            let mut size = emu_decoder.consumed() as u64;
-            if size == 0 {
-                size = 1;
-            }
+            let size = {
+                let size = emu_decoder.consumed();
+                if size == 0 { 1 } else { size }
+            };
 
             let instr_bytes = &bytes[0..size as usize];
 

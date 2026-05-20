@@ -522,7 +522,7 @@ pub fn render_disassembly(ui: &mut egui::Ui, app: &mut EmuApp) {
                             });
 
                             ui.end_row();
-                            current_addr += info.byte_size;
+                            current_addr += info.byte_size as u64;
                         }
                     });
             });

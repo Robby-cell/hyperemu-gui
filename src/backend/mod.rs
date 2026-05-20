@@ -13,7 +13,7 @@ pub struct DisassemblyInfo {
     pub hex_bytes: String,
     pub disassembly: String,
     pub internal_enum: String,
-    pub byte_size: u64,
+    pub byte_size: usize,
 }
 
 impl DisassemblyInfo {
@@ -21,7 +21,7 @@ impl DisassemblyInfo {
         hex_bytes: String,
         disassembly: String,
         internal_enum: String,
-        byte_size: u64,
+        byte_size: usize,
     ) -> Self {
         Self {
             hex_bytes,
