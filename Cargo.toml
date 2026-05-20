@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", tag = "0.1.2" }
+hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", tag = "0.1.3" }
 armv7-encoder = { git = "https://github.com/Robby-cell/armv7-encoder.git", tag = "0.3.7" }
 armv7-disassembler = { git = "https://github.com/Robby-cell/armv7-disassembler.git", tag = "0.3.2" }
 x86-translator = { git = "https://github.com/Robby-cell/x86-translator.git", tag = "0.1.7" }

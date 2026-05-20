@@ -1,4 +1,5 @@
 pub mod armv7;
+pub mod rv32i;
 pub mod x86;
 
 use crate::ui::peripherals::GuiPeripheral;

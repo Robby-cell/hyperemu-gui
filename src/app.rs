@@ -1,3 +1,4 @@
+use crate::backend::rv32i::Rv32iBackend;
 use crate::backend::x86::X86Backend;
 use crate::backend::{ArchBackend, armv7::Armv7Backend};
 use crate::ui::peripherals::GuiPeripheral;
@@ -188,8 +189,11 @@ pub struct EmuApp {
 
 impl Default for EmuApp {
     fn default() -> Self {
-        let backends: Vec<Arc<dyn ArchBackend>> =
-            vec![Arc::new(Armv7Backend), Arc::new(X86Backend)];
+        let backends: Vec<Arc<dyn ArchBackend>> = vec![
+            Arc::new(Armv7Backend),
+            Arc::new(X86Backend),
+            Arc::new(Rv32iBackend),
+        ];
         let code = backends[0].default_code().to_string();
 
         Self {

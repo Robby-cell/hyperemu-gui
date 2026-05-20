@@ -1481,7 +1481,7 @@ dependencies = [
 [[package]]
 name = "hyperemu"
 version = "0.1.2"
-source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.2#f074f630075e6739edfd7d5ffeefaa9c6e491609"
+source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.3#b1045520fbd81ed2b60168c6a9e910b492f743aa"
 dependencies = [
  "bitflags 2.11.1",
  "gdbstub",
