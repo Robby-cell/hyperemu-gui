@@ -17,10 +17,10 @@ _start:
     mov ebx, 0x10000000
 
     ; Pointer to string
-    mov ebp, message
+    lea ebp, [message]
     ; The address holding the length of the string
     ; Load the length into the register
-	mov edx, dword ptr [message_len]
+	mov edx, message_len
 print_loop:
     ; Test if the register holding the length is 0
     test edx, edx
