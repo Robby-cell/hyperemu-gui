@@ -7,6 +7,7 @@ use hyperemu::{
     arch::rv32i::decode::decode_riscv,
     device::{self, stm32_gpio::Stm32Gpio},
 };
+use riscv_asm::assembler::Assembler;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -14,9 +15,37 @@ use std::{
 
 pub struct Rv32iBackend;
 
-const STARTER_CODE: &str = r#"; RV32I Demo Code
-; Note: Real RISC-V Assembler not yet integrated into GUI.
-; This backend is fully operational via binary blobs and the API.
+const STARTER_CODE: &str = r#"; RISC-V (RV32I) GPIO Demo
+.text
+.global _start
+_start:
+    ; 1. Configure GPIO Base Address
+    li t0, 0x40000000
+
+    ; 2. Set PA5 as output (MODER bit 10 = 1 -> 0x400)
+    addi t1, zero, 0x400
+    sw t1, 0(t0)
+
+loop:
+    ; 3. Read the IDR (Input Data Register) at offset 0x10 (16)
+    lw t2, 16(t0)
+    
+    ; 4. Mask out everything except bit 0 (our UI button)
+    andi t2, t2, 1
+    
+    ; 5. Is the button pressed? If 0, jump to turn_off.
+    beq t2, zero, turn_off
+
+turn_on:
+    ; Turn LED ON (ODR bit 5 = 1 -> 0x20)
+    addi t3, zero, 0x20
+    sw t3, 20(t0)       ; Offset 0x14 is 20 in decimal
+    jal zero, loop      ; Jump back to loop
+
+turn_off:
+    ; Turn LED OFF (Write 0 to ODR)
+    sw zero, 20(t0)
+    jal zero, loop
 "#;
 
 impl ArchBackend for Rv32iBackend {
@@ -61,15 +90,42 @@ impl ArchBackend for Rv32iBackend {
         emu.reg_write(self.pc_reg(), 0).unwrap();
     }
 
-    fn assemble(&self, _code: &str) -> Result<AssembleResult, String> {
-        // Mock assemble for the UI placeholder
+    fn assemble(&self, code: &str) -> Result<AssembleResult, String> {
+        let res = Assembler::new()
+            .assemble(code)
+            .map_err(|e| format!("{}", e))?;
+
+        // 1. Platform-independent conversion: RISC-V instructions are universally Little-Endian
+        let bytes: Vec<u8> = res.bytes;
+
+        // 2. Generate UI Line Mappings (Standard RV32I is fixed 4-bytes per instruction)
+        let mut pc_to_line = HashMap::new();
+        let mut line_to_pc = HashMap::new();
+        let mut current_pc = res.start_address as u64;
+
+        for (i, line) in code.split('\n').enumerate() {
+            let trimmed = line.trim();
+            // Skip empty lines, comments (either ; or #), labels, and directives
+            if trimmed.is_empty()
+                || trimmed.starts_with(';')
+                || trimmed.starts_with('#')
+                || trimmed.ends_with(':')
+                || trimmed.starts_with('.')
+            {
+                continue;
+            }
+            pc_to_line.insert(current_pc, i);
+            line_to_pc.insert(i, current_pc);
+            current_pc += 4;
+        }
+
         Ok(AssembleResult {
-            bytes: vec![0x13, 0x00, 0x00, 0x00], // NOP (ADDI x0, x0, 0)
-            entry_point: 0,
+            bytes,
+            entry_point: res.start_address as _,
             labels: HashMap::new(),
-            instruction_count: 1,
-            line_to_pc: HashMap::new(),
-            pc_to_line: HashMap::new(),
+            instruction_count: res.size,
+            line_to_pc,
+            pc_to_line,
         })
     }
 

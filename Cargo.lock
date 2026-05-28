@@ -1490,8 +1490,8 @@ dependencies = [
 
 [[package]]
 name = "hyperemu"
-version = "0.1.4"
-source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.4#4fe786fb73634e91b2146ba92846f6baf5b12da9"
+version = "0.1.5"
+source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.5#51916fcbb66b759643494d88205a02fb6c81d730"
 dependencies = [
  "bitflags 2.11.1",
  "gdbstub",
@@ -1513,6 +1513,7 @@ dependencies = [
  "hyperemu",
  "log",
  "rfd",
+ "riscv_asm",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -2766,6 +2767,11 @@ dependencies = [
  "web-sys",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "riscv_asm"
+version = "0.1.1"
+source = "git+https://github.com/Robby-cell/riscv-assembler.git?tag=0.1.1#5b4ffee686f412e1372219c14c19146cce99764e"
 
 [[package]]
 name = "ron"

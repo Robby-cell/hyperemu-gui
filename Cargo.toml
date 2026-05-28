@@ -4,16 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", tag = "0.1.4" }
+hyperemu = { git = "https://github.com/Robby-cell/hyperemu.git", tag = "0.1.5" }
 armv7-encoder = { git = "https://github.com/Robby-cell/armv7-encoder.git", tag = "0.3.7" }
 armv7-disassembler = { git = "https://github.com/Robby-cell/armv7-disassembler.git", tag = "0.3.2" }
 x86-translator = { git = "https://github.com/Robby-cell/x86-translator.git", tag = "0.2.0" }
+riscv_asm = { git = "https://github.com/Robby-cell/riscv-assembler.git", tag = "0.1.2" }
 
 # For local development to get the most up to date changes.
 # hyperemu = { path = "../hyperemu" }
 # armv7-encoder = { path = "../armv7-encoder" }
 # armv7-disassembler = { path = "../armv7-disassembler" }
 # x86-translator = { path = "../x86-translator" }
+# riscv_asm = { path = "../riscv_asm" }
 
 eframe = { version = "0.34", features = ["persistence", "ron"] }
 egui = "0.34"
