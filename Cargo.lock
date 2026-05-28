@@ -1490,8 +1490,8 @@ dependencies = [
 
 [[package]]
 name = "hyperemu"
-version = "0.1.2"
-source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.3#b1045520fbd81ed2b60168c6a9e910b492f743aa"
+version = "0.1.4"
+source = "git+https://github.com/Robby-cell/hyperemu.git?tag=0.1.4#4fe786fb73634e91b2146ba92846f6baf5b12da9"
 dependencies = [
  "bitflags 2.11.1",
  "gdbstub",
@@ -4394,8 +4394,8 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "x86-translator"
-version = "0.1.8"
-source = "git+https://github.com/Robby-cell/x86-translator.git?tag=0.1.8#1843f8e2c063857494e11932829f1ef3aec22cb8"
+version = "0.2.0"
+source = "git+https://github.com/Robby-cell/x86-translator.git?tag=0.2.0#4a91bb1d0fa2b1b91d90ff961f12a0740ed4cadc"
 dependencies = [
  "iced-x86",
  "nom",

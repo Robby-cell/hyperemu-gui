@@ -16,36 +16,24 @@ _start:
     ; UART base address (the console to write to)
     mov ebx, 0x10000000
 
+    cld
     ; Pointer to string
-    lea ebp, [message]
-    ; The address holding the length of the string
+    lea esi, [message]
     ; Load the length into the register
-	mov edx, message_len
+	mov ecx, dword ptr [message_len]
 print_loop:
-    ; Test if the register holding the length is 0
-    test edx, edx
-    ; Exit, if it is zero
-    jz finished_printing
-
-    ; Move the byte pointed to by the string into `al` (lower byte of eax)
-    mov al, byte ptr [ebp]
-    ; Increment the string pointer to point to the next character
-	inc ebp
-    ; Decrement the remaining length
-	dec edx
-
-    ; Write byte to UART DATA register
+    lodsb
     mov byte ptr [ebx], al
-    jmp print_loop
+    loop print_loop
 
 finished_printing:
     ; GPIO Base Address
     mov ebx, 0x40000000
 
-loop:
+main_loop:
     ; Read the BUTTONS register (Offset 0x04)
     mov eax, dword ptr [ebx + 4]
-    
+
     ; Mask out everything except bit 0 (our Checkbox)
     and al, 1
     
@@ -61,12 +49,12 @@ loop:
 turn_led_off:
     ; Write 0 to the LEDS register (Offset 0x00)
     mov dword ptr [ebx], 0
-    jmp loop
+    jmp main_loop
 
 turn_led_on:
     ; Write 1 to the LEDS register (Offset 0x00)
     mov dword ptr [ebx], 1
-    jmp loop
+    jmp main_loop
 
 done:
     ; Done, loop
@@ -76,7 +64,7 @@ message:
 	.ascii "Hello, World!\n"
 _message_null: .byte 0
     .align 4
-message_len: .dword _message_null - message
+message_len: .long _message_null - message
 "#;
 
 impl ArchBackend for X86Backend {
