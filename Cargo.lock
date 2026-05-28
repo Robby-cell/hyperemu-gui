@@ -2770,8 +2770,8 @@ dependencies = [
 
 [[package]]
 name = "riscv_asm"
-version = "0.1.1"
-source = "git+https://github.com/Robby-cell/riscv-assembler.git?tag=0.1.1#5b4ffee686f412e1372219c14c19146cce99764e"
+version = "0.1.2"
+source = "git+https://github.com/Robby-cell/riscv-assembler.git?tag=0.1.2#316241cd1c0c27664ff453e4ca1b80fd180e49fc"
 
 [[package]]
 name = "ron"
