@@ -1,8 +1,6 @@
-use super::ArchBackend;
-use crate::{
-    backend::{AssembleResult, DisassemblyInfo},
-    ui::peripherals::{GuiPeripheral, PeripheralCategory},
-};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use armv7_disassembler::disassembler::{Decoder, Endian};
 use armv7_encoder::assembler::Encoder;
 use eframe::egui;
@@ -10,10 +8,10 @@ use hyperemu::{
     Arch, CpuMode, HyperEmu,
     device::{self, Device, stm32_gpio::Stm32Gpio},
 };
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+
+use crate::backend::ArchBackend;
+use crate::backend::{AssembleResult, DisassemblyInfo};
+use crate::ui::peripherals::{GuiPeripheral, PeripheralCategory};
 
 pub struct Armv7Backend;
 
@@ -46,10 +44,10 @@ finished_printing:
 loop:
     @ 1. Read the IDR (Input Data Register) at offset 0x10 -> triggers registers[4]
     ldr     r2, [r0, #0x10]
-    
+
     @ 2. Mask out everything except bit 0 (our UI button)
     and     r2, r2, #1
-    
+
     @ 3. Is the button pressed?
     cmp     r2, #1
     beq     turn_led_on

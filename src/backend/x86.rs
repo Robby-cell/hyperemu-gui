@@ -1,12 +1,12 @@
-use super::{ArchBackend, AssembleResult, DisassemblyInfo};
-use crate::ui::peripherals::GuiPeripheral;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use eframe::egui;
 use hyperemu::{Arch, CpuMode, HyperEmu, arch::x86::decode::X86Decoder, device::Device};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
 use x86_translator::{assembler::Assembler, disassembler::Disassembler};
+
+use crate::backend::{ArchBackend, AssembleResult, DisassemblyInfo};
+use crate::ui::peripherals::GuiPeripheral;
 
 pub struct X86Backend;
 
@@ -36,7 +36,7 @@ main_loop:
 
     ; Mask out everything except bit 0 (our Checkbox)
     and al, 1
-    
+
     ; Is the button pressed?
     ; Since we mask everything out except 1 (eax can only be 1 or 0)
     ; The only '1' we can have is the lower byte

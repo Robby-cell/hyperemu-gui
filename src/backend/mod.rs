@@ -2,13 +2,13 @@ pub mod armv7;
 pub mod rv32i;
 pub mod x86;
 
-use crate::ui::peripherals::GuiPeripheral;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use eframe::egui;
 use hyperemu::{Arch, CpuMode, HyperEmu, device};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+
+use crate::ui::peripherals::GuiPeripheral;
 
 pub struct DisassemblyInfo {
     pub hex_bytes: String,
@@ -36,13 +36,20 @@ impl DisassemblyInfo {
 #[derive(Debug, Clone)]
 pub struct AssembleResult {
     pub bytes: Vec<u8>,
+
+    #[allow(dead_code)]
     pub entry_point: u64,
+
     /// Maps a label/function name to its exact physical byte address (IP)
     pub labels: HashMap<String, u64>,
+
     /// Total number of physical instructions and data directives emitted
+    #[allow(dead_code)]
     pub instruction_count: usize,
+
     /// Maps exact UI text line numbers to Physical Memory PCs
     pub line_to_pc: HashMap<usize, u64>,
+
     /// Maps Physical Memory PCs back to UI text lines for breakpoints
     pub pc_to_line: HashMap<u64, usize>,
 }

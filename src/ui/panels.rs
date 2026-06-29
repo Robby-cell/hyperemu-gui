@@ -1,12 +1,14 @@
-use crate::app::{DeviceType, EmuApp, MemMapRecord};
-use crate::backend::ArchBackend;
-use crate::ui::peripherals::{GuiUartWriter, PeripheralCategory, UartGui};
+use std::sync::{Arc, Mutex};
+
 use eframe::egui;
 use hyperemu::HyperEmu;
 use hyperemu::bus::{MemoryBus, Perms};
 use hyperemu::device::{ram::Ram, uart::Uart};
 use hyperemu::interface::Cpu;
-use std::sync::{Arc, Mutex};
+
+use crate::app::{DeviceType, EmuApp, MemMapRecord};
+use crate::backend::ArchBackend;
+use crate::ui::peripherals::{GuiUartWriter, PeripheralCategory, UartGui};
 
 fn append_highlighted(
     backend: &dyn ArchBackend,

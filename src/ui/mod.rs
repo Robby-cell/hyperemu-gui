@@ -3,8 +3,9 @@ pub mod peripherals;
 
 use std::time::Duration;
 
-use crate::app::{CentralTab, EmuApp, LeftTab};
 use eframe::egui;
+
+use crate::app::{CentralTab, EmuApp, LeftTab};
 
 pub fn render_layout(app: &mut EmuApp, ui: &mut egui::Ui) {
     let mut step_clicked = false;

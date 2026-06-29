@@ -1,6 +1,7 @@
-use eframe::egui;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+
+use eframe::egui;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum PeripheralCategory {
@@ -10,8 +11,11 @@ pub enum PeripheralCategory {
 
 // Adding `Send` ensures that traits map easily across standard multithreading bounds in eframe
 pub trait GuiPeripheral: Send {
+    #[allow(dead_code)]
     fn name(&self) -> &str;
+
     fn category(&self) -> PeripheralCategory;
+
     fn render(&mut self, ui: &mut egui::Ui);
 }
 

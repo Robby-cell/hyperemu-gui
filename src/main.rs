@@ -1,3 +1,5 @@
+#![deny(unsafe_code, dead_code)]
+
 mod app;
 mod backend;
 mod ui;

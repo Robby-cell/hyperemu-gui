@@ -1,6 +1,6 @@
-use super::{ArchBackend, AssembleResult, DisassemblyInfo};
-use crate::backend::armv7::Stm32GpioGui;
-use crate::ui::peripherals::GuiPeripheral;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use eframe::egui;
 use hyperemu::{
     Arch, CpuMode, HyperEmu,
@@ -8,10 +8,10 @@ use hyperemu::{
     device::{self, stm32_gpio::Stm32Gpio},
 };
 use riscv_asm::assembler::Assembler;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+
+use crate::backend::armv7::Stm32GpioGui;
+use crate::backend::{ArchBackend, AssembleResult, DisassemblyInfo};
+use crate::ui::peripherals::GuiPeripheral;
 
 pub struct Rv32iBackend;
 
@@ -29,10 +29,10 @@ _start:
 loop:
     ; 3. Read the IDR (Input Data Register) at offset 0x10 (16)
     lw t2, 16(t0)
-    
+
     ; 4. Mask out everything except bit 0 (our UI button)
     andi t2, t2, 1
-    
+
     ; 5. Is the button pressed? If 0, jump to turn_off.
     beq t2, zero, turn_off
 

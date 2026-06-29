@@ -1,13 +1,16 @@
-use crate::backend::rv32i::Rv32iBackend;
-use crate::backend::x86::X86Backend;
-use crate::backend::{ArchBackend, armv7::Armv7Backend};
-use crate::ui::peripherals::GuiPeripheral;
-use eframe::egui;
-use hyperemu::HyperEmu;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use eframe::egui;
+use hyperemu::HyperEmu;
+use serde::{Deserialize, Serialize};
+
+use crate::backend::ArchBackend;
+use crate::backend::armv7::Armv7Backend;
+use crate::backend::rv32i::Rv32iBackend;
+use crate::backend::x86::X86Backend;
+use crate::ui::peripherals::GuiPeripheral;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DeviceType {
@@ -37,10 +40,12 @@ impl ClockSpeed {
         Self::new_hz(khz * 1_000)
     }
 
+    #[allow(dead_code)]
     pub const fn new_mhz(mhz: u64) -> Self {
         Self::new_hz(mhz * 1_000_000)
     }
 
+    #[allow(dead_code)]
     pub const fn hz(&self) -> u64 {
         self.0
     }
