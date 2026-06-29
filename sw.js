@@ -1,4 +1,4 @@
-const cacheName = 'hyperemu-pwa-v1.2';
+const cacheName = 'hyperemu-pwa-v1';
 const filesToCache =[
   './',
   './index.html',
